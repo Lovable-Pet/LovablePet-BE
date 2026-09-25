@@ -1,0 +1,81 @@
+############################
+# Gradle
+############################
+.gradle/
+**/build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+# Gradle wrapper jar 는 반드시 커밋해야 한다 (CI/팀원이 gradle 설치 없이 빌드)
+!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+
+############################
+# Java
+############################
+*.class
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+############################
+# IntelliJ IDEA
+############################
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+############################
+# VS Code
+############################
+.vscode/
+!.vscode/settings.json.example
+.history/
+
+############################
+# Eclipse / STS
+############################
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+############################
+# OS
+############################
+.DS_Store
+Thumbs.db
+desktop.ini
+
+############################
+# 환경변수 / 민감정보 (절대 커밋 금지)
+############################
+.env
+.env.*
+!.env.example
+**/application-local.yml
+
+############################
+# 런타임 산출물
+############################
+# 로컬 파일 저장소 (업로드 이미지, 3D 모델 등)
+storage/
+**/storage/
+# 단, 소스코드의 storage 패키지는 추적한다
+!**/src/main/java/**/storage/
+!**/src/test/java/**/storage/
+*.log
+logs/

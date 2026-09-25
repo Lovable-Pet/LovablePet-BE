@@ -1,0 +1,12 @@
+.gradle
+build
+.idea
+.vscode
+*.iml
+.env
+.env.*
+storage
+*.log
+Dockerfile
+docker-compose.yml
+src/main/resources/application-local.yml
