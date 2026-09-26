@@ -3,6 +3,7 @@ package com.lovablepet.domain.auth.client;
 import com.lovablepet.global.config.KakaoOAuthProperties;
 import com.lovablepet.global.exception.BusinessException;
 import com.lovablepet.global.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -12,6 +13,9 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
+import java.nio.charset.StandardCharsets;
+
+@Slf4j
 @Component
 public class KakaoOAuthClient {
 
@@ -49,6 +53,9 @@ public class KakaoOAuthClient {
                 .retrieve()
                 // 잘못되거나 만료·재사용된 인가 코드는 카카오가 4xx로 응답한다 → 외부 장애(502)가 아닌 인증 실패로 처리
                 .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                    // 카카오 오류 본문(error_code: KOE320 등)을 남겨 원인을 구분할 수 있게 한다. 비밀값은 포함되지 않는다.
+                    String body = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
+                    log.warn("카카오 토큰 교환 실패: status={}, body={}", res.getStatusCode(), body);
                     throw new BusinessException(ErrorCode.AUTH_KAKAO_INVALID_CODE);
                 })
                 .body(KakaoTokenResponse.class);
