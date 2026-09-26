@@ -22,6 +22,7 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
+import java.util.Locale;
 
 @Slf4j
 @RestControllerAdvice
@@ -38,7 +39,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
         List<ErrorResponse.FieldError> fieldErrors = e.getBindingResult().getFieldErrors().stream()
-                .map(fe -> new ErrorResponse.FieldError(fe.getField(), fe.getRejectedValue(), fe.getDefaultMessage()))
+                .map(fe -> new ErrorResponse.FieldError(fe.getField(), maskSensitive(fe.getField(), fe.getRejectedValue()), fe.getDefaultMessage()))
                 .toList();
         return toResponse(ErrorCode.INVALID_INPUT, ErrorResponse.of(ErrorCode.INVALID_INPUT, fieldErrors));
     }
@@ -47,7 +48,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException e) {
         List<ErrorResponse.FieldError> fieldErrors = e.getConstraintViolations().stream()
-                .map(v -> new ErrorResponse.FieldError(v.getPropertyPath().toString(), v.getInvalidValue(), v.getMessage()))
+                .map(v -> new ErrorResponse.FieldError(v.getPropertyPath().toString(), maskSensitive(v.getPropertyPath().toString(), v.getInvalidValue()), v.getMessage()))
                 .toList();
         return toResponse(ErrorCode.INVALID_INPUT, ErrorResponse.of(ErrorCode.INVALID_INPUT, fieldErrors));
     }
@@ -59,7 +60,7 @@ public class GlobalExceptionHandler {
                 .flatMap(result -> result.getResolvableErrors().stream()
                         .map(error -> new ErrorResponse.FieldError(
                                 result.getMethodParameter().getParameterName(),
-                                result.getArgument(),
+                                maskSensitive(result.getMethodParameter().getParameterName(), result.getArgument()),
                                 error.getDefaultMessage())))
                 .toList();
         return toResponse(ErrorCode.INVALID_INPUT, ErrorResponse.of(ErrorCode.INVALID_INPUT, fieldErrors));
@@ -127,6 +128,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception e) {
         log.error("Unhandled exception", e);
         return toResponse(ErrorCode.INTERNAL_ERROR, ErrorResponse.of(ErrorCode.INTERNAL_ERROR));
+    }
+
+    /** 비밀번호 등 민감한 입력값은 오류 응답(rejectedValue)에 되돌려주지 않는다. */
+    private static Object maskSensitive(String field, Object value) {
+        if (field != null && field.toLowerCase(Locale.ROOT).contains("password")) {
+            return null;
+        }
+        return value;
     }
 
     private ResponseEntity<ApiResponse<Void>> toResponse(ErrorCode errorCode, ErrorResponse body) {
