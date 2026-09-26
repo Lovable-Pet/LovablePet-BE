@@ -48,7 +48,7 @@ public class KakaoOAuthClient {
                 .body(form)
                 .retrieve()
                 // 잘못되거나 만료·재사용된 인가 코드는 카카오가 4xx로 응답한다 → 외부 장애(502)가 아닌 인증 실패로 처리
-                .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+                .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
                     throw new BusinessException(ErrorCode.AUTH_KAKAO_INVALID_CODE);
                 })
                 .body(KakaoTokenResponse.class);
