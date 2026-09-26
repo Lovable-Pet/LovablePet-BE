@@ -51,13 +51,18 @@ public class LocalCredential {
     }
 
     public static LocalCredential create(Long memberId, String email, String passwordHash) {
-        String normalizedEmail = email != null ? email.trim().toLowerCase(Locale.ROOT) : null;
+        String normalizedEmail = normalizeEmail(email);
         validateInputs(memberId, normalizedEmail, passwordHash);
         return LocalCredential.builder()
             .memberId(memberId)
             .email(normalizedEmail)
             .passwordHash(passwordHash)
             .build();
+    }
+
+    // 이메일 비교/저장 기준: 앞뒤 공백 제거 + 소문자
+    public static String normalizeEmail(String email) {
+        return email != null ? email.trim().toLowerCase(Locale.ROOT) : null;
     }
 
     // 비밀번호 해쉬값 변경

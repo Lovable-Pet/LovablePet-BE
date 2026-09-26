@@ -5,6 +5,7 @@ import com.lovablepet.global.exception.BusinessException;
 import com.lovablepet.global.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
@@ -43,6 +44,10 @@ public class KakaoOAuthClient {
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(form)
                 .retrieve()
+                // 잘못되거나 만료·재사용된 인가 코드는 카카오가 4xx로 응답한다 → 외부 장애(502)가 아닌 인증 실패로 처리
+                .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+                    throw new BusinessException(ErrorCode.AUTH_KAKAO_INVALID_CODE);
+                })
                 .body(KakaoTokenResponse.class);
 
         if (response == null || response.accessToken() == null || response.accessToken().isBlank()) {

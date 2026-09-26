@@ -2,8 +2,11 @@ package com.lovablepet.domain.auth.service;
 
 import com.lovablepet.domain.auth.dto.AuthTokenResponse;
 import com.lovablepet.domain.auth.entity.LocalCredential;
+import com.lovablepet.domain.auth.entity.OAuthAccount;
+import com.lovablepet.domain.auth.entity.OAuthProvider;
 import com.lovablepet.domain.auth.entity.RefreshToken;
 import com.lovablepet.domain.auth.repository.LocalCredentialRepository;
+import com.lovablepet.domain.auth.repository.OAuthAccountRepository;
 import com.lovablepet.domain.auth.repository.RefreshTokenRepository;
 import com.lovablepet.domain.member.entity.Member;
 import com.lovablepet.domain.member.entity.MemberStatus;
@@ -16,15 +19,19 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Locale;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AuthService {
 
+    // 없는 이메일로 로그인해도 비밀번호 검증을 한 번 수행해 응답 시간 차이로 가입 여부를 추측하지 못하게 한다.
+    private static final String DUMMY_PASSWORD = "lovablepet-timing-dummy-password";
+
     private final MemberRepository memberRepository;
     private final LocalCredentialRepository localCredentialRepository;
+    private final OAuthAccountRepository oauthAccountRepository;
     private final RefreshTokenRepository refreshTokenRepository;
 
     // 역할이 분리된 두 개의 암호화 컴포넌트 주입
@@ -32,12 +39,18 @@ public class AuthService {
     private final RefreshTokenHashService refreshTokenHashService;
     private final JwtProvider jwtProvider;
 
+    private volatile String dummyPasswordHash;
+
+    /**
+     * 이메일 회원가입. 가입 직후 바로 로그인 상태가 되도록 토큰을 발급한다.
+     * 동시 가입으로 유니크 제약에 걸리면 GlobalExceptionHandler가 409로 응답한다.
+     */
     @Transactional
-    public void signUpLocal(String email, String rawPassword, String nickname) {
+    public AuthTokenResponse signUpLocal(String email, String rawPassword, String nickname) {
         // 1. 이메일 정규화 및 중복 검증
-        String normalizedEmail = email != null ? email.trim().toLowerCase(Locale.ROOT) : null;
+        String normalizedEmail = LocalCredential.normalizeEmail(email);
         if (localCredentialRepository.existsByEmail(normalizedEmail)) {
-            throw new BusinessException(ErrorCode.CONFLICT, "이미 가입된 이메일입니다.");
+            throw new BusinessException(ErrorCode.AUTH_DUPLICATE_EMAIL);
         }
 
         // 2. 회원 생성
@@ -46,22 +59,47 @@ public class AuthService {
 
         // 3. 비밀번호는 DelegatingPasswordEncoder로 인코딩 ({bcrypt}...)
         String encodedPassword = passwordEncoder.encode(rawPassword);
-        LocalCredential credential = LocalCredential.create(member.getId(), normalizedEmail, encodedPassword);
-        localCredentialRepository.save(credential);
+        localCredentialRepository.save(LocalCredential.create(member.getId(), normalizedEmail, encodedPassword));
+
+        return issueTokens(member.getId());
     }
 
+    /**
+     * 이메일 로그인. 이메일이 없든 비밀번호가 틀리든 같은 오류로 응답해 가입 여부를 노출하지 않는다.
+     */
     @Transactional
     public AuthTokenResponse loginLocal(String email, String rawPassword) {
-        String normalizedEmail = email != null ? email.trim().toLowerCase(Locale.ROOT) : null;
-        LocalCredential credential = localCredentialRepository.findByEmail(normalizedEmail)
-            .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "가입되지 않은 이메일입니다."));
+        Optional<LocalCredential> credential =
+                localCredentialRepository.findByEmail(LocalCredential.normalizeEmail(email));
 
         // 비밀번호 검증은 무조건 matches() 사용
-        if (!passwordEncoder.matches(rawPassword, credential.getPasswordHash())) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "비밀번호가 일치하지 않습니다.");
+        String passwordHash = credential.map(LocalCredential::getPasswordHash).orElseGet(this::dummyPasswordHash);
+        boolean passwordMatches = passwordEncoder.matches(rawPassword, passwordHash);
+
+        if (credential.isEmpty() || !passwordMatches) {
+            throw new BusinessException(ErrorCode.AUTH_INVALID_CREDENTIALS);
         }
 
-        return issueTokensForActiveMember(credential.getMemberId());
+        return issueTokensForActiveMember(credential.get().getMemberId());
+    }
+
+    /**
+     * 소셜 로그인. 연동된 계정이 없으면 회원을 새로 만든다.
+     * 외부 API 호출은 호출하는 쪽(KakaoAuthService 등)에서 트랜잭션 밖에서 끝낸 뒤 이 메서드를 부른다.
+     */
+    @Transactional
+    public AuthTokenResponse loginWithOAuth(OAuthProvider provider, String providerSubject, String nickname) {
+        Optional<OAuthAccount> account =
+                oauthAccountRepository.findByProviderAndProviderSubject(provider, providerSubject);
+        if (account.isPresent()) {
+            return issueTokensForActiveMember(account.get().getMemberId());
+        }
+
+        Member member = Member.create(nickname);
+        memberRepository.save(member);
+        oauthAccountRepository.save(OAuthAccount.create(member.getId(), provider, providerSubject));
+
+        return issueTokens(member.getId());
     }
 
     @Transactional
@@ -70,16 +108,16 @@ public class AuthService {
         String hashedToken = refreshTokenHashService.hash(rawRefreshToken);
 
         RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(hashedToken)
-            .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다."));
+            .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_INVALID_REFRESH_TOKEN));
 
         if (refreshToken.isExpired()) {
             refreshTokenRepository.delete(refreshToken);
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "리프레시 토큰이 만료되었습니다. 다시 로그인해주세요.");
+            throw new BusinessException(ErrorCode.AUTH_INVALID_REFRESH_TOKEN);
         }
 
         if (!isActiveMember(refreshToken.getMemberId())) {
             refreshTokenRepository.delete(refreshToken);
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "활성 상태가 아닌 회원입니다.");
+            throw new BusinessException(ErrorCode.AUTH_INACTIVE_MEMBER);
         }
 
         // 새 토큰 발급 및 엔티티 업데이트 (RTR)
@@ -98,9 +136,10 @@ public class AuthService {
         refreshTokenRepository.deleteByTokenHash(hashedToken);
     }
 
-    @Transactional
-    public AuthTokenResponse issueTokensForActiveMember(Long memberId) {
-        ensureActiveMember(memberId);
+    private AuthTokenResponse issueTokensForActiveMember(Long memberId) {
+        if (!isActiveMember(memberId)) {
+            throw new BusinessException(ErrorCode.AUTH_INACTIVE_MEMBER);
+        }
         return issueTokens(memberId);
     }
 
@@ -121,13 +160,14 @@ public class AuthService {
         return new AuthTokenResponse(accessToken, rawRefreshToken);
     }
 
-    private void ensureActiveMember(Long memberId) {
-        if (!isActiveMember(memberId)) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "활성 상태가 아닌 회원입니다.");
-        }
+    private boolean isActiveMember(Long memberId) {
+        return memberRepository.existsByIdAndStatus(memberId, MemberStatus.ACTIVE);
     }
 
-    private boolean isActiveMember(Long memberId) {
-        return memberRepository.findByIdAndStatus(memberId, MemberStatus.ACTIVE).isPresent();
+    private String dummyPasswordHash() {
+        if (dummyPasswordHash == null) {
+            dummyPasswordHash = passwordEncoder.encode(DUMMY_PASSWORD);
+        }
+        return dummyPasswordHash;
     }
 }

@@ -4,6 +4,7 @@ import com.lovablepet.global.response.ApiResponse;
 import com.lovablepet.global.response.ErrorResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -98,6 +99,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(MaxUploadSizeExceededException e) {
         return toResponse(ErrorCode.PAYLOAD_TOO_LARGE, ErrorResponse.of(ErrorCode.PAYLOAD_TOO_LARGE));
+    }
+
+    /** DB 유니크 제약 위반 (예: 같은 이메일로 동시에 가입 요청) — 500 대신 409로 응답 */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        log.warn("DataIntegrityViolation: {}", e.getMostSpecificCause().getMessage());
+        return toResponse(ErrorCode.CONFLICT, ErrorResponse.of(ErrorCode.CONFLICT));
     }
 
     /** 외부(Python AI 서버) 호출 타임아웃/연결 실패 */

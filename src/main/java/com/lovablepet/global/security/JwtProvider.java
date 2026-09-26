@@ -8,13 +8,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Date;
-import java.util.UUID;
 
 @Component
 public class JwtProvider {
+
+    private static final int REFRESH_TOKEN_BYTES = 32; // 256비트
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final SecretKey key;
     private final long accessTokenExpMillis;
@@ -63,9 +67,12 @@ public class JwtProvider {
 
     /**
      * 리프레시 토큰용 고엔트로피 난수 발급 (JWT가 아닌 순수 난수로 발급하여 가볍게 유지)
+     * UUID(122비트)보다 긴 256비트 난수를 URL-safe Base64로 인코딩한다.
      */
     public String createRefreshToken() {
-        return UUID.randomUUID().toString();
+        byte[] bytes = new byte[REFRESH_TOKEN_BYTES];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     /**
