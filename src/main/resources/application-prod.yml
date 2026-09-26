@@ -19,6 +19,16 @@ storage:
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
+kakao:
+  oauth:
+    client-id: ${KAKAO_REST_API_KEY}
+    client-secret: ${KAKAO_CLIENT_SECRET}
+    redirect-uri: ${KAKAO_REDIRECT_URI}
+    auth-base-url: https://kauth.kakao.com
+    api-base-url: https://kapi.kakao.com
+    connect-timeout: 5s
+    read-timeout: 10s
+
 management:
   endpoint:
     health:
@@ -34,3 +44,11 @@ logging:
   level:
     root: INFO
     com.lovablepet: INFO
+
+app:
+  auth:
+    jwt-secret: ${JWT_SECRET}
+    token-hash-secret: ${TOKEN_HASH_SECRET}
+
+    access-token-expiration: ${ACCESS_TOKEN_EXPIRATION}
+    refresh-token-expiration: ${REFRESH_TOKEN_EXPIRATION}

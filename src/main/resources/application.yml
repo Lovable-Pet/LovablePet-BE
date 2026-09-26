@@ -48,6 +48,16 @@ storage:
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
 
+kakao:
+  oauth:
+    client-id: ${KAKAO_REST_API_KEY:}
+    client-secret: ${KAKAO_CLIENT_SECRET:}
+    redirect-uri: ${KAKAO_REDIRECT_URI:}
+    auth-base-url: https://kauth.kakao.com
+    api-base-url: https://kapi.kakao.com
+    connect-timeout: 5s
+    read-timeout: 10s
+
 management:
   endpoints:
     web:
@@ -56,3 +66,14 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+app:
+  auth:
+    # JWT 서명용 시크릿 키 (운영에서는 반드시 JWT_SECRET 환경변수로 32바이트 이상 난수 주입)
+    jwt-secret: ${JWT_SECRET:v/Z5Y1B/L8xXbK2G7zUeT9aR3vC5bN8xQ2W1yM4kZ6U=}
+
+    # 리프레시 토큰 해싱용 시크릿 키
+    token-hash-secret: ${TOKEN_HASH_SECRET:random-hash-secret-key-1234567890}
+
+    # 토큰 만료 시간 (밀리초 단위) - 필요시 운영에서 시간 단축/연장 가능
+    access-token-expiration: ${ACCESS_TOKEN_EXPIRATION:1800000} # 기본 30분
+    refresh-token-expiration: ${REFRESH_TOKEN_EXPIRATION:1209600000} # 기본 14일
