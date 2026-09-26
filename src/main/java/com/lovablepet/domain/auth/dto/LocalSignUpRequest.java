@@ -19,4 +19,14 @@ public record LocalSignUpRequest(
     @Size(max = 50, message = "닉네임은 50자를 초과할 수 없습니다.")
     String nickname
 ) {
+
+    // 검증(@Email 등)보다 먼저 실행되어, 복사·붙여넣기로 섞인 앞뒤 공백을 제거한다.
+    public LocalSignUpRequest {
+        email = strip(email);
+        nickname = strip(nickname);
+    }
+
+    private static String strip(String value) {
+        return value == null ? null : value.strip();
+    }
 }
