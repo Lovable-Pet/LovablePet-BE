@@ -15,8 +15,15 @@ public record KakaoOAuthProperties(
         Duration readTimeout
 ) {
 
+    /**
+     * 필수 설정 여부. Client Secret은 카카오 콘솔에서 사용하도록 켠 경우에만 필요하므로 검사하지 않는다.
+     */
     public boolean isConfigured() {
-        return hasText(clientId) && hasText(clientSecret) && hasText(redirectUri);
+        return hasText(clientId) && hasText(redirectUri);
+    }
+
+    public boolean hasClientSecret() {
+        return hasText(clientSecret);
     }
 
     private static boolean hasText(String value) {

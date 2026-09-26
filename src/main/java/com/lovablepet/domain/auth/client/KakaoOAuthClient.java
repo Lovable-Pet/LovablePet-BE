@@ -35,7 +35,10 @@ public class KakaoOAuthClient {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "authorization_code");
         form.add("client_id", properties.clientId());
-        form.add("client_secret", properties.clientSecret());
+        // Client Secret은 카카오 콘솔에서 '사용함'으로 설정한 경우에만 전송
+        if (properties.hasClientSecret()) {
+            form.add("client_secret", properties.clientSecret());
+        }
         form.add("redirect_uri", properties.redirectUri());
         form.add("code", authorizationCode);
 
