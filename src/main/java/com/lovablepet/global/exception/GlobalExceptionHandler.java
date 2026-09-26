@@ -104,7 +104,7 @@ public class GlobalExceptionHandler {
     /** DB 유니크 제약 위반 (예: 같은 이메일로 동시에 가입 요청) — 500 대신 409로 응답 */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException e) {
-        log.warn("DataIntegrityViolation: {}", e.getMostSpecificCause().getMessage());
+        log.warn("DataIntegrityViolation: {}", e.getMessage());
         return toResponse(ErrorCode.CONFLICT, ErrorResponse.of(ErrorCode.CONFLICT));
     }
 
