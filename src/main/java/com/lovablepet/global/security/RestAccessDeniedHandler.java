@@ -1,25 +1,19 @@
 package com.lovablepet.global.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lovablepet.global.exception.ErrorCode;
-import com.lovablepet.global.response.ApiResponse;
-import com.lovablepet.global.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
+/**
+ * 인증은 되었지만 권한이 없는 요청에 대한 403 응답.
+ */
 @Component
-@RequiredArgsConstructor
 public class RestAccessDeniedHandler implements AccessDeniedHandler {
-
-    private final ObjectMapper objectMapper;
 
     @Override
     public void handle(
@@ -27,10 +21,6 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
             HttpServletResponse response,
             AccessDeniedException accessDeniedException
     ) throws IOException {
-        response.setStatus(ErrorCode.FORBIDDEN.getStatus().value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        objectMapper.writeValue(response.getOutputStream(),
-                ApiResponse.fail(ErrorResponse.of(ErrorCode.FORBIDDEN)));
+        SecurityErrorResponseWriter.write(response, ErrorCode.FORBIDDEN);
     }
 }

@@ -1,6 +1,7 @@
 package com.lovablepet.global.config;
 
 import com.lovablepet.global.security.JwtAuthenticationFilter;
+import com.lovablepet.global.security.JwtProvider;
 import com.lovablepet.global.security.RestAccessDeniedHandler;
 import com.lovablepet.global.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtProvider jwtProvider;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
 
@@ -51,7 +52,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 }
