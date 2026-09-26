@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/error", // 내부 오류 포워딩 경로 — 막으면 실제 오류가 401로 가려진다
                                 "/actuator/health",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
