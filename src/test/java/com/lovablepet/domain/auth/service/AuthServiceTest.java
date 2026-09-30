@@ -5,13 +5,13 @@ import com.lovablepet.domain.auth.entity.LocalCredential;
 import com.lovablepet.domain.auth.entity.OAuthAccount;
 import com.lovablepet.domain.auth.entity.OAuthProvider;
 import com.lovablepet.domain.auth.entity.RefreshToken;
+import com.lovablepet.domain.auth.exception.AuthException;
 import com.lovablepet.domain.auth.repository.LocalCredentialRepository;
 import com.lovablepet.domain.auth.repository.OAuthAccountRepository;
 import com.lovablepet.domain.auth.repository.RefreshTokenRepository;
 import com.lovablepet.domain.member.entity.Member;
 import com.lovablepet.domain.member.entity.MemberStatus;
 import com.lovablepet.domain.member.repository.MemberRepository;
-import com.lovablepet.global.exception.BusinessException;
 import com.lovablepet.global.exception.ErrorCode;
 import com.lovablepet.global.security.JwtProvider;
 import org.junit.jupiter.api.BeforeEach;
@@ -105,7 +105,7 @@ class AuthServiceTest {
         given(localCredentialRepository.existsByUsername(USERNAME)).willReturn(true);
 
         assertThatThrownBy(() -> authService.signUpLocal("TESTER01", EMAIL, PASSWORD, "댕댕이"))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AuthException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_DUPLICATE_USERNAME);
         verify(memberRepository, never()).save(any());
     }
@@ -117,7 +117,7 @@ class AuthServiceTest {
         given(localCredentialRepository.existsByEmail(EMAIL)).willReturn(true);
 
         assertThatThrownBy(() -> authService.signUpLocal(USERNAME, EMAIL, PASSWORD, "댕댕이"))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AuthException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_DUPLICATE_EMAIL);
         verify(memberRepository, never()).save(any());
     }
@@ -143,10 +143,10 @@ class AuthServiceTest {
         given(localCredentialRepository.findByUsername(USERNAME)).willReturn(Optional.of(credential(1L)));
 
         assertThatThrownBy(() -> authService.loginLocal("nobody", PASSWORD))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AuthException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
         assertThatThrownBy(() -> authService.loginLocal(USERNAME, "wrong-password"))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AuthException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
     }
 
@@ -157,7 +157,7 @@ class AuthServiceTest {
         given(memberRepository.existsByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(false);
 
         assertThatThrownBy(() -> authService.loginLocal(USERNAME, PASSWORD))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AuthException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_INACTIVE_MEMBER);
     }
 
@@ -229,7 +229,7 @@ class AuthServiceTest {
         given(refreshTokenRepository.findByTokenHash(any())).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.reissueToken("unknown-token"))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AuthException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_INVALID_REFRESH_TOKEN);
     }
 
@@ -241,7 +241,7 @@ class AuthServiceTest {
         given(refreshTokenRepository.findByTokenHash(hashService.hash(rawToken))).willReturn(Optional.of(expired));
 
         assertThatThrownBy(() -> authService.reissueToken(rawToken))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AuthException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_INVALID_REFRESH_TOKEN);
         verify(refreshTokenRepository).delete(expired);
     }

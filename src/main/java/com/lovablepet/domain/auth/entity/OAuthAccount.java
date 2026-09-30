@@ -1,6 +1,6 @@
 package com.lovablepet.domain.auth.entity;
 
-import com.lovablepet.global.exception.BusinessException;
+import com.lovablepet.domain.auth.exception.AuthException;
 import com.lovablepet.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -71,13 +71,13 @@ public class OAuthAccount {
 
     private static void validateInputs(Long memberId, OAuthProvider provider, String providerSubject) {
         if (memberId == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "회원 ID는 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "회원 ID는 필수입니다.");
         }
         if (provider == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "소셜 제공자는 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "소셜 제공자는 필수입니다.");
         }
         if (providerSubject == null || providerSubject.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "소셜 식별자(Subject)는 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "소셜 식별자(Subject)는 필수입니다.");
         }
     }
 }

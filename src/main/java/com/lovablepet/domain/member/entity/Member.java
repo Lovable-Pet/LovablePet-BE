@@ -1,6 +1,6 @@
 package com.lovablepet.domain.member.entity;
 
-import com.lovablepet.global.exception.BusinessException;
+import com.lovablepet.domain.member.exception.MemberException;
 import com.lovablepet.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -76,10 +76,10 @@ public class Member {
     //닉네임 검증 공통 로직(생성, 수정 시 적용)
     private static void validateNickname(String nickname) {
         if (nickname == null || nickname.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "닉네임은 공백일 수 없습니다.");
+            throw new MemberException(ErrorCode.INVALID_INPUT, "닉네임은 공백일 수 없습니다.");
         }
         if (nickname.length() > 50) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "닉네임은 50자를 초과할 수 없습니다.");
+            throw new MemberException(ErrorCode.INVALID_INPUT, "닉네임은 50자를 초과할 수 없습니다.");
         }
     }
 }

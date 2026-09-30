@@ -1,7 +1,7 @@
 package com.lovablepet.domain.auth.entity;
 
 
-import com.lovablepet.global.exception.BusinessException;
+import com.lovablepet.domain.auth.exception.AuthException;
 import com.lovablepet.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -56,17 +56,17 @@ public class RefreshToken {
     // RTR 방식: 유저가 리프레시토큰 사용해 엑세스 토큰 재발급 시 리프레시 토큰도 새로 발급
     public void updateToken(String newTokenHash, LocalDateTime newExpiryDate) {
         if (this.isExpired()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "이미 만료된 토큰은 갱신할 수 없습니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "이미 만료된 토큰은 갱신할 수 없습니다.");
         }
 
         if (newTokenHash == null || newTokenHash.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "갱신할 토큰 해시값은 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "갱신할 토큰 해시값은 필수입니다.");
         }
         if (newExpiryDate == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "새 만료 일시는 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "새 만료 일시는 필수입니다.");
         }
         if (newExpiryDate.isBefore(LocalDateTime.now())) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "새 만료 일시는 현재 시간보다 과거일 수 없습니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "새 만료 일시는 현재 시간보다 과거일 수 없습니다.");
         }
 
         this.tokenHash = newTokenHash;
@@ -80,13 +80,13 @@ public class RefreshToken {
 
     private static void validateInputs(Long memberId, String tokenHash, LocalDateTime expiryDate) {
         if (memberId == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "회원 ID는 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "회원 ID는 필수입니다.");
         }
         if (tokenHash == null || tokenHash.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "토큰 해시값은 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "토큰 해시값은 필수입니다.");
         }
         if (expiryDate == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "만료 일시는 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "만료 일시는 필수입니다.");
         }
     }
 }

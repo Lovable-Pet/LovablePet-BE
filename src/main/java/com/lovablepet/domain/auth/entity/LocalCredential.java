@@ -1,6 +1,6 @@
 package com.lovablepet.domain.auth.entity;
 
-import com.lovablepet.global.exception.BusinessException;
+import com.lovablepet.domain.auth.exception.AuthException;
 import com.lovablepet.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -86,23 +86,23 @@ public class LocalCredential {
     // 비밀번호 해쉬값 변경
     public void changePasswordHash(String newPasswordHash) {
         if (newPasswordHash == null || newPasswordHash.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "새 비밀번호 해시값은 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "새 비밀번호 해시값은 필수입니다.");
         }
         this.passwordHash = newPasswordHash;
     }
 
     private static void validateInputs(Long memberId, String username, String email, String passwordHash) {
         if (memberId == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "회원 ID는 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "회원 ID는 필수입니다.");
         }
         if (username == null || username.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "아이디는 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "아이디는 필수입니다.");
         }
         if (email == null || email.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "이메일은 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "이메일은 필수입니다.");
         }
         if (passwordHash == null || passwordHash.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "비밀번호 해시값은 필수입니다.");
+            throw new AuthException(ErrorCode.INVALID_INPUT, "비밀번호 해시값은 필수입니다.");
         }
     }
 }

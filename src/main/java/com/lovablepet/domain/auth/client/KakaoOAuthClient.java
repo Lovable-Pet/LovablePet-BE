@@ -1,7 +1,7 @@
 package com.lovablepet.domain.auth.client;
 
+import com.lovablepet.domain.auth.exception.AuthException;
 import com.lovablepet.global.config.KakaoOAuthProperties;
-import com.lovablepet.global.exception.BusinessException;
 import com.lovablepet.global.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -56,12 +56,12 @@ public class KakaoOAuthClient {
                     // 카카오 오류 본문(error_code: KOE320 등)을 남겨 원인을 구분할 수 있게 한다. 비밀값은 포함되지 않는다.
                     String body = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
                     log.warn("카카오 토큰 교환 실패: status={}, body={}", res.getStatusCode(), body);
-                    throw new BusinessException(ErrorCode.AUTH_KAKAO_INVALID_CODE);
+                    throw new AuthException(ErrorCode.AUTH_KAKAO_INVALID_CODE);
                 })
                 .body(KakaoTokenResponse.class);
 
         if (response == null || response.accessToken() == null || response.accessToken().isBlank()) {
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "카카오 액세스 토큰을 받지 못했습니다.");
+            throw new AuthException(ErrorCode.EXTERNAL_API_ERROR, "카카오 액세스 토큰을 받지 못했습니다.");
         }
 
         return response;
@@ -75,7 +75,7 @@ public class KakaoOAuthClient {
                 .body(KakaoUserResponse.class);
 
         if (response == null || response.id() == null) {
-            throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR, "카카오 사용자 정보를 받지 못했습니다.");
+            throw new AuthException(ErrorCode.EXTERNAL_API_ERROR, "카카오 사용자 정보를 받지 못했습니다.");
         }
 
         return response;
@@ -83,7 +83,7 @@ public class KakaoOAuthClient {
 
     private void validateConfiguration() {
         if (!properties.isConfigured()) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "카카오 OAuth 설정이 완료되지 않았습니다.");
+            throw new AuthException(ErrorCode.INTERNAL_ERROR, "카카오 OAuth 설정이 완료되지 않았습니다.");
         }
     }
 }

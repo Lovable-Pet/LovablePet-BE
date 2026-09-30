@@ -1,6 +1,6 @@
 package com.lovablepet.domain.auth.service;
 
-import com.lovablepet.global.exception.BusinessException;
+import com.lovablepet.domain.auth.exception.AuthException;
 import com.lovablepet.global.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -31,7 +31,7 @@ public class RefreshTokenHashService {
             // DB에 저장하기 좋도록 Base64 인코딩하여 반환 (VARCHAR 길이에 충분히 수용됨)
             return Base64.getEncoder().encodeToString(hashBytes);
         } catch (Exception e) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "토큰 해싱 중 오류가 발생했습니다.");
+            throw new AuthException(ErrorCode.INTERNAL_ERROR, "토큰 해싱 중 오류가 발생했습니다.");
         }
     }
 }

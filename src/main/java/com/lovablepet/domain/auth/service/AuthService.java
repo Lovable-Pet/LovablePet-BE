@@ -5,13 +5,13 @@ import com.lovablepet.domain.auth.entity.LocalCredential;
 import com.lovablepet.domain.auth.entity.OAuthAccount;
 import com.lovablepet.domain.auth.entity.OAuthProvider;
 import com.lovablepet.domain.auth.entity.RefreshToken;
+import com.lovablepet.domain.auth.exception.AuthException;
 import com.lovablepet.domain.auth.repository.LocalCredentialRepository;
 import com.lovablepet.domain.auth.repository.OAuthAccountRepository;
 import com.lovablepet.domain.auth.repository.RefreshTokenRepository;
 import com.lovablepet.domain.member.entity.Member;
 import com.lovablepet.domain.member.entity.MemberStatus;
 import com.lovablepet.domain.member.repository.MemberRepository;
-import com.lovablepet.global.exception.BusinessException;
 import com.lovablepet.global.exception.ErrorCode;
 import com.lovablepet.global.security.JwtProvider;
 import lombok.RequiredArgsConstructor;
@@ -52,10 +52,10 @@ public class AuthService {
         String normalizedUsername = LocalCredential.normalizeUsername(username);
         String normalizedEmail = LocalCredential.normalizeEmail(email);
         if (localCredentialRepository.existsByUsername(normalizedUsername)) {
-            throw new BusinessException(ErrorCode.AUTH_DUPLICATE_USERNAME);
+            throw new AuthException(ErrorCode.AUTH_DUPLICATE_USERNAME);
         }
         if (localCredentialRepository.existsByEmail(normalizedEmail)) {
-            throw new BusinessException(ErrorCode.AUTH_DUPLICATE_EMAIL);
+            throw new AuthException(ErrorCode.AUTH_DUPLICATE_EMAIL);
         }
 
         // 2. 회원 생성
@@ -82,7 +82,7 @@ public class AuthService {
         boolean passwordMatches = passwordEncoder.matches(rawPassword, passwordHash);
 
         if (credential.isEmpty() || !passwordMatches) {
-            throw new BusinessException(ErrorCode.AUTH_INVALID_CREDENTIALS);
+            throw new AuthException(ErrorCode.AUTH_INVALID_CREDENTIALS);
         }
 
         return issueTokensForActiveMember(credential.get().getMemberId());
@@ -120,16 +120,16 @@ public class AuthService {
         String hashedToken = refreshTokenHashService.hash(rawRefreshToken);
 
         RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(hashedToken)
-            .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_INVALID_REFRESH_TOKEN));
+            .orElseThrow(() -> new AuthException(ErrorCode.AUTH_INVALID_REFRESH_TOKEN));
 
         if (refreshToken.isExpired()) {
             refreshTokenRepository.delete(refreshToken);
-            throw new BusinessException(ErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+            throw new AuthException(ErrorCode.AUTH_INVALID_REFRESH_TOKEN);
         }
 
         if (!isActiveMember(refreshToken.getMemberId())) {
             refreshTokenRepository.delete(refreshToken);
-            throw new BusinessException(ErrorCode.AUTH_INACTIVE_MEMBER);
+            throw new AuthException(ErrorCode.AUTH_INACTIVE_MEMBER);
         }
 
         // 새 토큰 발급 및 엔티티 업데이트 (RTR)
@@ -150,7 +150,7 @@ public class AuthService {
 
     private AuthTokenResponse issueTokensForActiveMember(Long memberId) {
         if (!isActiveMember(memberId)) {
-            throw new BusinessException(ErrorCode.AUTH_INACTIVE_MEMBER);
+            throw new AuthException(ErrorCode.AUTH_INACTIVE_MEMBER);
         }
         return issueTokens(memberId);
     }
