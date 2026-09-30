@@ -27,11 +27,12 @@ public enum ErrorCode {
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_500", "서버 내부 오류가 발생했습니다."),
 
     // Auth
-    AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다."),
+    AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CREDENTIALS", "아이디 또는 비밀번호가 올바르지 않습니다."),
     AUTH_INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_401_TOKEN", "유효하지 않거나 만료된 액세스 토큰입니다."),
     AUTH_INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_401_REFRESH", "유효하지 않거나 만료된 리프레시 토큰입니다. 다시 로그인해주세요."),
     AUTH_KAKAO_INVALID_CODE(HttpStatus.UNAUTHORIZED, "AUTH_401_KAKAO", "카카오 인가 코드가 유효하지 않거나 만료되었습니다."),
     AUTH_INACTIVE_MEMBER(HttpStatus.FORBIDDEN, "AUTH_403_INACTIVE", "탈퇴했거나 이용할 수 없는 회원입니다."),
+    AUTH_DUPLICATE_USERNAME(HttpStatus.CONFLICT, "AUTH_409_USERNAME", "이미 사용 중인 아이디입니다."),
     AUTH_DUPLICATE_EMAIL(HttpStatus.CONFLICT, "AUTH_409_EMAIL", "이미 가입된 이메일입니다."),
 
     // External (Python AI 서버 등)

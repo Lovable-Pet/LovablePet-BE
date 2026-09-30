@@ -43,6 +43,7 @@ import static org.mockito.Mockito.verify;
 class AuthServiceTest {
 
     private static final String JWT_SECRET = "v/Z5Y1B/L8xXbK2G7zUeT9aR3vC5bN8xQ2W1yM4kZ6U=";
+    private static final String USERNAME = "tester01";
     private static final String EMAIL = "user@example.com";
     private static final String PASSWORD = "password123";
 
@@ -77,17 +78,19 @@ class AuthServiceTest {
     // ---------- 회원가입 ----------
 
     @Test
-    @DisplayName("회원가입: 이메일을 정규화하고 비밀번호를 해시로 저장한 뒤 토큰을 발급한다")
+    @DisplayName("회원가입: 아이디·이메일을 정규화하고 비밀번호를 해시로 저장한 뒤 토큰을 발급한다")
     void signUp_success() {
+        given(localCredentialRepository.existsByUsername(USERNAME)).willReturn(false);
         given(localCredentialRepository.existsByEmail(EMAIL)).willReturn(false);
         givenMemberSaveAssignsId(1L);
 
-        AuthTokenResponse tokens = authService.signUpLocal("  User@Example.com ", PASSWORD, "댕댕이");
+        AuthTokenResponse tokens = authService.signUpLocal(" Tester01 ", "  User@Example.com ", PASSWORD, "댕댕이");
 
         ArgumentCaptor<LocalCredential> credentialCaptor = ArgumentCaptor.forClass(LocalCredential.class);
         verify(localCredentialRepository).save(credentialCaptor.capture());
         LocalCredential saved = credentialCaptor.getValue();
         assertThat(saved.getMemberId()).isEqualTo(1L);
+        assertThat(saved.getUsername()).isEqualTo(USERNAME);
         assertThat(saved.getEmail()).isEqualTo(EMAIL);
         assertThat(saved.getPasswordHash()).startsWith("{bcrypt}").isNotEqualTo(PASSWORD);
         assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isTrue();
@@ -97,11 +100,23 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("회원가입: 이미 사용 중인 아이디면 AUTH_DUPLICATE_USERNAME (대소문자 무시)")
+    void signUp_duplicateUsername() {
+        given(localCredentialRepository.existsByUsername(USERNAME)).willReturn(true);
+
+        assertThatThrownBy(() -> authService.signUpLocal("TESTER01", EMAIL, PASSWORD, "댕댕이"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.AUTH_DUPLICATE_USERNAME);
+        verify(memberRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("회원가입: 이미 가입된 이메일이면 AUTH_DUPLICATE_EMAIL")
     void signUp_duplicateEmail() {
+        given(localCredentialRepository.existsByUsername(USERNAME)).willReturn(false);
         given(localCredentialRepository.existsByEmail(EMAIL)).willReturn(true);
 
-        assertThatThrownBy(() -> authService.signUpLocal(EMAIL, PASSWORD, "댕댕이"))
+        assertThatThrownBy(() -> authService.signUpLocal(USERNAME, EMAIL, PASSWORD, "댕댕이"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_DUPLICATE_EMAIL);
         verify(memberRepository, never()).save(any());
@@ -110,27 +125,27 @@ class AuthServiceTest {
     // ---------- 로그인 ----------
 
     @Test
-    @DisplayName("로그인: 올바른 이메일/비밀번호면 토큰을 발급한다 (이메일 대소문자 무시)")
+    @DisplayName("로그인: 올바른 아이디/비밀번호면 토큰을 발급한다 (아이디 대소문자 무시)")
     void login_success() {
-        given(localCredentialRepository.findByEmail(EMAIL)).willReturn(Optional.of(credential(1L)));
+        given(localCredentialRepository.findByUsername(USERNAME)).willReturn(Optional.of(credential(1L)));
         given(memberRepository.existsByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(true);
 
-        AuthTokenResponse tokens = authService.loginLocal(" USER@example.com", PASSWORD);
+        AuthTokenResponse tokens = authService.loginLocal(" TESTER01", PASSWORD);
 
         assertThat(jwtProvider.getMemberId(tokens.accessToken())).isEqualTo(1L);
         assertRefreshTokenStoredAsHash(tokens.refreshToken());
     }
 
     @Test
-    @DisplayName("로그인: 없는 이메일과 틀린 비밀번호는 같은 오류 코드로 응답한다")
+    @DisplayName("로그인: 없는 아이디와 틀린 비밀번호는 같은 오류 코드로 응답한다")
     void login_failuresShareSameErrorCode() {
-        given(localCredentialRepository.findByEmail("nobody@example.com")).willReturn(Optional.empty());
-        given(localCredentialRepository.findByEmail(EMAIL)).willReturn(Optional.of(credential(1L)));
+        given(localCredentialRepository.findByUsername("nobody")).willReturn(Optional.empty());
+        given(localCredentialRepository.findByUsername(USERNAME)).willReturn(Optional.of(credential(1L)));
 
-        assertThatThrownBy(() -> authService.loginLocal("nobody@example.com", PASSWORD))
+        assertThatThrownBy(() -> authService.loginLocal("nobody", PASSWORD))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
-        assertThatThrownBy(() -> authService.loginLocal(EMAIL, "wrong-password"))
+        assertThatThrownBy(() -> authService.loginLocal(USERNAME, "wrong-password"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
     }
@@ -138,12 +153,24 @@ class AuthServiceTest {
     @Test
     @DisplayName("로그인: 탈퇴한 회원이면 AUTH_INACTIVE_MEMBER")
     void login_inactiveMember() {
-        given(localCredentialRepository.findByEmail(EMAIL)).willReturn(Optional.of(credential(1L)));
+        given(localCredentialRepository.findByUsername(USERNAME)).willReturn(Optional.of(credential(1L)));
         given(memberRepository.existsByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(false);
 
-        assertThatThrownBy(() -> authService.loginLocal(EMAIL, PASSWORD))
+        assertThatThrownBy(() -> authService.loginLocal(USERNAME, PASSWORD))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.AUTH_INACTIVE_MEMBER);
+    }
+
+    // ---------- 아이디 중복 확인 ----------
+
+    @Test
+    @DisplayName("아이디 중복 확인: 사용 중인 아이디는 대소문자와 관계없이 사용 불가")
+    void usernameAvailability() {
+        given(localCredentialRepository.existsByUsername(USERNAME)).willReturn(true);
+        given(localCredentialRepository.existsByUsername("newuser")).willReturn(false);
+
+        assertThat(authService.isUsernameAvailable("Tester01")).isFalse();
+        assertThat(authService.isUsernameAvailable("newuser")).isTrue();
     }
 
     // ---------- 소셜 로그인 ----------
@@ -232,7 +259,7 @@ class AuthServiceTest {
     // ---------- helpers ----------
 
     private LocalCredential credential(Long memberId) {
-        return LocalCredential.create(memberId, EMAIL, passwordEncoder.encode(PASSWORD));
+        return LocalCredential.create(memberId, USERNAME, EMAIL, passwordEncoder.encode(PASSWORD));
     }
 
     /** save 시 DB가 BIGSERIAL id를 채워 주는 동작을 흉내 낸다. */

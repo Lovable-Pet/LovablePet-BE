@@ -21,6 +21,11 @@ import java.util.Locale;
 @EntityListeners(AuditingEntityListener.class)
 public class LocalCredential {
     //로컬 계정 정보
+
+    /** 아이디 형식: 영문·숫자·밑줄(_) 4~20자. 대문자로 입력해도 소문자로 저장한다. */
+    public static final String USERNAME_REGEX = "^[A-Za-z0-9_]{4,20}$";
+    public static final String USERNAME_MESSAGE = "아이디는 영문, 숫자, 밑줄(_)로 4~20자여야 합니다.";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; //db의 id
@@ -29,6 +34,11 @@ public class LocalCredential {
     @Column(nullable = false, unique = true)
     private Long memberId;
 
+    // 로그인 아이디
+    @Column(nullable = false, unique = true, length = 20)
+    private String username;
+
+    // 연락·계정 찾기용 (로그인에는 사용하지 않음)
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
@@ -44,20 +54,28 @@ public class LocalCredential {
     private LocalDateTime updatedAt;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private LocalCredential(Long memberId, String email, String passwordHash) {
+    private LocalCredential(Long memberId, String username, String email, String passwordHash) {
         this.memberId = memberId;
+        this.username = username;
         this.email = email;
         this.passwordHash = passwordHash;
     }
 
-    public static LocalCredential create(Long memberId, String email, String passwordHash) {
+    public static LocalCredential create(Long memberId, String username, String email, String passwordHash) {
+        String normalizedUsername = normalizeUsername(username);
         String normalizedEmail = normalizeEmail(email);
-        validateInputs(memberId, normalizedEmail, passwordHash);
+        validateInputs(memberId, normalizedUsername, normalizedEmail, passwordHash);
         return LocalCredential.builder()
             .memberId(memberId)
+            .username(normalizedUsername)
             .email(normalizedEmail)
             .passwordHash(passwordHash)
             .build();
+    }
+
+    // 아이디 비교/저장 기준: 앞뒤 공백 제거 + 소문자 (대소문자 구분 없음)
+    public static String normalizeUsername(String username) {
+        return username != null ? username.trim().toLowerCase(Locale.ROOT) : null;
     }
 
     // 이메일 비교/저장 기준: 앞뒤 공백 제거 + 소문자
@@ -73,9 +91,12 @@ public class LocalCredential {
         this.passwordHash = newPasswordHash;
     }
 
-    private static void validateInputs(Long memberId, String email, String passwordHash) {
+    private static void validateInputs(Long memberId, String username, String email, String passwordHash) {
         if (memberId == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "회원 ID는 필수입니다.");
+        }
+        if (username == null || username.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "아이디는 필수입니다.");
         }
         if (email == null || email.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "이메일은 필수입니다.");

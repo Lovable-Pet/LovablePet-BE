@@ -26,7 +26,7 @@ import java.util.Optional;
 @Transactional(readOnly = true)
 public class AuthService {
 
-    // 없는 이메일로 로그인해도 비밀번호 검증을 한 번 수행해 응답 시간 차이로 가입 여부를 추측하지 못하게 한다.
+    // 없는 아이디로 로그인해도 비밀번호 검증을 한 번 수행해 응답 시간 차이로 가입 여부를 추측하지 못하게 한다.
     private static final String DUMMY_PASSWORD = "lovablepet-timing-dummy-password";
 
     private final MemberRepository memberRepository;
@@ -42,13 +42,18 @@ public class AuthService {
     private volatile String dummyPasswordHash;
 
     /**
-     * 이메일 회원가입. 가입 직후 바로 로그인 상태가 되도록 토큰을 발급한다.
+     * 로컬 회원가입 (아이디 + 이메일). 가입 직후 바로 로그인 상태가 되도록 토큰을 발급한다.
+     * 아이디는 로그인용, 이메일은 연락·계정 찾기용이며 둘 다 중복될 수 없다.
      * 동시 가입으로 유니크 제약에 걸리면 GlobalExceptionHandler가 409로 응답한다.
      */
     @Transactional
-    public AuthTokenResponse signUpLocal(String email, String rawPassword, String nickname) {
-        // 1. 이메일 정규화 및 중복 검증
+    public AuthTokenResponse signUpLocal(String username, String email, String rawPassword, String nickname) {
+        // 1. 아이디·이메일 정규화 및 중복 검증
+        String normalizedUsername = LocalCredential.normalizeUsername(username);
         String normalizedEmail = LocalCredential.normalizeEmail(email);
+        if (localCredentialRepository.existsByUsername(normalizedUsername)) {
+            throw new BusinessException(ErrorCode.AUTH_DUPLICATE_USERNAME);
+        }
         if (localCredentialRepository.existsByEmail(normalizedEmail)) {
             throw new BusinessException(ErrorCode.AUTH_DUPLICATE_EMAIL);
         }
@@ -59,18 +64,18 @@ public class AuthService {
 
         // 3. 비밀번호는 DelegatingPasswordEncoder로 인코딩 ({bcrypt}...)
         String encodedPassword = passwordEncoder.encode(rawPassword);
-        localCredentialRepository.save(LocalCredential.create(member.getId(), normalizedEmail, encodedPassword));
+        localCredentialRepository.save(LocalCredential.create(member.getId(), normalizedUsername, normalizedEmail, encodedPassword));
 
         return issueTokens(member.getId());
     }
 
     /**
-     * 이메일 로그인. 이메일이 없든 비밀번호가 틀리든 같은 오류로 응답해 가입 여부를 노출하지 않는다.
+     * 아이디 로그인. 아이디가 없든 비밀번호가 틀리든 같은 오류로 응답한다.
      */
     @Transactional
-    public AuthTokenResponse loginLocal(String email, String rawPassword) {
+    public AuthTokenResponse loginLocal(String username, String rawPassword) {
         Optional<LocalCredential> credential =
-                localCredentialRepository.findByEmail(LocalCredential.normalizeEmail(email));
+                localCredentialRepository.findByUsername(LocalCredential.normalizeUsername(username));
 
         // 비밀번호 검증은 무조건 matches() 사용
         String passwordHash = credential.map(LocalCredential::getPasswordHash).orElseGet(this::dummyPasswordHash);
@@ -81,6 +86,13 @@ public class AuthService {
         }
 
         return issueTokensForActiveMember(credential.get().getMemberId());
+    }
+
+    /**
+     * 아이디 사용 가능 여부 (회원가입 화면의 중복 확인용). 대소문자는 구분하지 않는다.
+     */
+    public boolean isUsernameAvailable(String username) {
+        return !localCredentialRepository.existsByUsername(LocalCredential.normalizeUsername(username));
     }
 
     /**
