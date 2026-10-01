@@ -58,7 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (JwtException | IllegalArgumentException e) {
             // 만료/위조 토큰: 클라이언트가 재발급을 시도할 수 있도록 AUTH_401_TOKEN 코드로 응답
             SecurityContextHolder.clearContext();
-            SecurityErrorResponseWriter.write(response, ErrorCode.AUTH_INVALID_TOKEN);
+            SecurityErrorResponseWriter.write(request, response, ErrorCode.AUTH_INVALID_TOKEN);
             return;
         }
 
