@@ -27,4 +27,29 @@ public class RestClientConfig {
                 .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
+
+    @Bean
+    public RestClient kakaoAuthRestClient(RestClient.Builder builder, KakaoOAuthProperties properties) {
+        return builder
+                .baseUrl(properties.authBaseUrl())
+                .requestFactory(requestFactory(properties.connectTimeout(), properties.readTimeout()))
+                .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+    }
+
+    @Bean
+    public RestClient kakaoApiRestClient(RestClient.Builder builder, KakaoOAuthProperties properties) {
+        return builder
+                .baseUrl(properties.apiBaseUrl())
+                .requestFactory(requestFactory(properties.connectTimeout(), properties.readTimeout()))
+                .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+    }
+
+    private SimpleClientHttpRequestFactory requestFactory(java.time.Duration connectTimeout, java.time.Duration readTimeout) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(connectTimeout);
+        requestFactory.setReadTimeout(readTimeout);
+        return requestFactory;
+    }
 }

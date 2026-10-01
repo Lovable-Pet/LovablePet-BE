@@ -6,7 +6,7 @@ import org.springframework.http.HttpStatus;
 
 /**
  * 공통 에러 코드. 도메인별 에러 코드는 도메인 추가 시 여기에 이어서 정의한다.
- * (코드 접두어 규칙: COMMON_, PET_, GENERATION_, MODEL_, MATCH_, SURVEY_, STORAGE_)
+ * (코드 접두어 규칙: COMMON_, AUTH_, MEMBER_, PET_, GENERATION_, MODEL_, MATCH_, SURVEY_, STORAGE_)
  */
 @Getter
 @RequiredArgsConstructor
@@ -25,6 +25,15 @@ public enum ErrorCode {
     PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "COMMON_413", "업로드 가능한 파일 크기를 초과했습니다."),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "COMMON_415", "지원하지 않는 Content-Type입니다."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_500", "서버 내부 오류가 발생했습니다."),
+
+    // Auth
+    AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CREDENTIALS", "아이디 또는 비밀번호가 올바르지 않습니다."),
+    AUTH_INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_401_TOKEN", "유효하지 않거나 만료된 액세스 토큰입니다."),
+    AUTH_INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_401_REFRESH", "유효하지 않거나 만료된 리프레시 토큰입니다. 다시 로그인해주세요."),
+    AUTH_KAKAO_INVALID_CODE(HttpStatus.UNAUTHORIZED, "AUTH_401_KAKAO", "카카오 인가 코드가 유효하지 않거나 만료되었습니다."),
+    AUTH_INACTIVE_MEMBER(HttpStatus.FORBIDDEN, "AUTH_403_INACTIVE", "탈퇴했거나 이용할 수 없는 회원입니다."),
+    AUTH_DUPLICATE_USERNAME(HttpStatus.CONFLICT, "AUTH_409_USERNAME", "이미 사용 중인 아이디입니다."),
+    AUTH_DUPLICATE_EMAIL(HttpStatus.CONFLICT, "AUTH_409_EMAIL", "이미 가입된 이메일입니다."),
 
     // External (Python AI 서버 등)
     EXTERNAL_API_ERROR(HttpStatus.BAD_GATEWAY, "EXTERNAL_502", "외부 서버 호출 중 오류가 발생했습니다."),
