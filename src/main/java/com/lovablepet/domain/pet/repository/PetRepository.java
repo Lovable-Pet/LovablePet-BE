@@ -2,6 +2,7 @@ package com.lovablepet.domain.pet.repository;
 
 import com.lovablepet.domain.pet.entity.Pet;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,7 +11,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
-public interface PetRepository extends JpaRepository<Pet, Long> {
+public interface PetRepository extends JpaRepository<Pet, Long>, JpaSpecificationExecutor<Pet> {
 
     List<Pet> findAllByDesertionNoIn(Collection<String> desertionNos);
 
@@ -25,4 +26,5 @@ public interface PetRepository extends JpaRepository<Pet, Long> {
     @Modifying
     @Query("update Pet p set p.listed = false where p.listed = true and p.syncedAt < :syncStartedAt")
     int unlistNotSyncedSince(@Param("syncStartedAt") Instant syncStartedAt);
+
 }

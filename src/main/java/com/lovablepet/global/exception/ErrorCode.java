@@ -38,6 +38,7 @@ public enum ErrorCode {
     // Pet (공공데이터 유기견)
     PET_SYNC_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "PET_503_SYNC_KEY", "공공데이터 인증키가 설정되지 않아 동기화할 수 없습니다."),
     PET_SYNC_RUNNING(HttpStatus.CONFLICT, "PET_409_SYNC", "동물 동기화가 이미 진행 중입니다."),
+    PET_NOT_FOUND(HttpStatus.NOT_FOUND, "PET_404", "동물을 찾을 수 없습니다."),
 
     // Generation (3D 생성 파이프라인)
     GENERATION_INVALID_API_KEY(HttpStatus.UNAUTHORIZED, "GENERATION_401_KEY", "파이프라인 API 키가 올바르지 않습니다."),
