@@ -8,10 +8,11 @@ spring:
   jpa:
     show-sql: false
 
-petgen:
-  base-url: ${PETGEN_BASE_URL}
-  token: ${PETGEN_TOKEN}
-  callback-url: ${PETGEN_CALLBACK_URL}
+pet-pipeline:
+  base-url: ${PET_PIPELINE_BASE_URL}
+  api-key: ${PET_PIPELINE_API_KEY}
+  callback-url: ${PET_PIPELINE_CALLBACK_URL}
+  model-dir: ${PET_PIPELINE_MODEL_DIR:/data/storage/models}
 
 storage:
   root: ${STORAGE_ROOT:/data/storage}

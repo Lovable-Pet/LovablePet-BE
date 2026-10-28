@@ -35,6 +35,10 @@ public enum ErrorCode {
     AUTH_DUPLICATE_USERNAME(HttpStatus.CONFLICT, "AUTH_409_USERNAME", "이미 사용 중인 아이디입니다."),
     AUTH_DUPLICATE_EMAIL(HttpStatus.CONFLICT, "AUTH_409_EMAIL", "이미 가입된 이메일입니다."),
 
+    // Generation (3D 생성 파이프라인)
+    GENERATION_INVALID_API_KEY(HttpStatus.UNAUTHORIZED, "GENERATION_401_KEY", "파이프라인 API 키가 올바르지 않습니다."),
+    GENERATION_INVALID_PET_ID(HttpStatus.BAD_REQUEST, "GENERATION_400_PET_ID", "모델 파일 이름으로 쓸 수 없는 관리번호입니다."),
+
     // External (Python AI 서버 등)
     EXTERNAL_API_ERROR(HttpStatus.BAD_GATEWAY, "EXTERNAL_502", "외부 서버 호출 중 오류가 발생했습니다."),
     EXTERNAL_API_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "EXTERNAL_504", "외부 서버 응답 시간이 초과되었습니다.");

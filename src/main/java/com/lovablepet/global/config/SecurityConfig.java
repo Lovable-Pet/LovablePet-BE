@@ -48,6 +48,7 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/error", // 내부 오류 포워딩 경로 — 막으면 실제 오류가 401로 가려진다
                                 "/actuator/health",
+                                "/internal/pet-models/callback", // 파이프라인 콜백 — X-API-Key 는 PetModelCallbackController 가 검사한다
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"

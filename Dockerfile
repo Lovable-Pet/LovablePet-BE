@@ -16,7 +16,8 @@ RUN ./gradlew bootJar --no-daemon -x test
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-RUN groupadd --system app && useradd --system --gid app app \
+# uid/gid 고정: 서버에서 /data/storage 에 바인드 마운트하는 폴더를 이 번호(10001) 소유로 만들어 둔다
+RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app app \
     && mkdir -p /data/storage && chown -R app:app /data
 
 COPY --from=build /workspace/build/libs/*.jar app.jar

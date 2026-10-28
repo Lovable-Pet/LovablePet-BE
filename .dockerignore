@@ -9,4 +9,6 @@ storage
 *.log
 Dockerfile
 docker-compose.yml
+.github
+deploy
 src/main/resources/application-local.yml
