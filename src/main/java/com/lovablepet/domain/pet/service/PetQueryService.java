@@ -1,12 +1,14 @@
 package com.lovablepet.domain.pet.service;
 
 import com.lovablepet.domain.pet.dto.PetDetailResponse;
+import com.lovablepet.domain.pet.dto.PetFilterOptionsResponse;
 import com.lovablepet.domain.pet.dto.PetPageResponse;
 import com.lovablepet.domain.pet.dto.PetSearchCondition;
 import com.lovablepet.domain.pet.dto.PetSort;
 import com.lovablepet.domain.pet.dto.PetSummaryResponse;
 import com.lovablepet.domain.pet.entity.Pet;
 import com.lovablepet.domain.pet.exception.PetException;
+import com.lovablepet.domain.pet.repository.PetCountByName;
 import com.lovablepet.domain.pet.repository.PetRepository;
 import com.lovablepet.domain.pet.repository.PetSpecifications;
 import com.lovablepet.global.exception.ErrorCode;
@@ -63,6 +65,17 @@ public class PetQueryService {
     public PetDetailResponse get(Long id) {
         Pet pet = petRepository.findById(id).orElseThrow(() -> new PetException(ErrorCode.PET_NOT_FOUND));
         return PetDetailResponse.of(pet, today());
+    }
+
+    public PetFilterOptionsResponse filterOptions() {
+        LocalDate today = today();
+        return new PetFilterOptionsResponse(
+                toOptions(petRepository.countAdoptableBySido(today)),
+                toOptions(petRepository.countAdoptableByKind(today)));
+    }
+
+    private static List<PetFilterOptionsResponse.Option> toOptions(List<PetCountByName> counts) {
+        return counts.stream().map(count -> new PetFilterOptionsResponse.Option(count.getName(), count.getCount())).toList();
     }
 
     // 공고 날짜는 한국 날짜다

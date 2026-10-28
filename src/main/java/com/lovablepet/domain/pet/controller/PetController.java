@@ -1,6 +1,7 @@
 package com.lovablepet.domain.pet.controller;
 
 import com.lovablepet.domain.pet.dto.PetDetailResponse;
+import com.lovablepet.domain.pet.dto.PetFilterOptionsResponse;
 import com.lovablepet.domain.pet.dto.PetPageResponse;
 import com.lovablepet.domain.pet.dto.PetSearchCondition;
 import com.lovablepet.domain.pet.dto.PetSort;
@@ -55,6 +56,13 @@ public class PetController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return ApiResponse.ok(petQueryService.search(
                 new PetSearchCondition(region, kind, minWeight, maxWeight, sort), page, size));
+    }
+
+    @Operation(summary = "목록 필터 선택지",
+            description = "입양 가능한 동물의 시도별·품종별 마릿수. 목록 조회의 region, kind 에 name 을 그대로 넣는다.")
+    @GetMapping("/filters")
+    public ApiResponse<PetFilterOptionsResponse> filters() {
+        return ApiResponse.ok(petQueryService.filterOptions());
     }
 
     @Operation(summary = "유기견 상세",

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
@@ -27,4 +28,23 @@ public interface PetRepository extends JpaRepository<Pet, Long>, JpaSpecificatio
     @Query("update Pet p set p.listed = false where p.listed = true and p.syncedAt < :syncStartedAt")
     int unlistNotSyncedSince(@Param("syncStartedAt") Instant syncStartedAt);
 
+    /** 입양 가능한 동물의 시도(관할 지자체 첫 단어)별 마릿수. 예: "경기도 화성시" → "경기도" */
+    @Query(value = """
+            select split_part(org_name, ' ', 1) as name, count(*) as count
+            from pet
+            where listed and notice_end < :today and org_name is not null
+            group by 1
+            order by 2 desc, 1
+            """, nativeQuery = true)
+    List<PetCountByName> countAdoptableBySido(@Param("today") LocalDate today);
+
+    /** 입양 가능한 동물의 품종별 마릿수 */
+    @Query("""
+            select p.kindName as name, count(p) as count
+            from Pet p
+            where p.listed = true and p.noticeEnd < :today and p.kindName is not null
+            group by p.kindName
+            order by count(p) desc, p.kindName
+            """)
+    List<PetCountByName> countAdoptableByKind(@Param("today") LocalDate today);
 }

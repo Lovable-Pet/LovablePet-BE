@@ -2,11 +2,13 @@ package com.lovablepet.domain.pet.service;
 
 import com.lovablepet.domain.pet.client.PublicAnimalItem;
 import com.lovablepet.domain.pet.dto.PetDetailResponse;
+import com.lovablepet.domain.pet.dto.PetFilterOptionsResponse;
 import com.lovablepet.domain.pet.dto.PetPageResponse;
 import com.lovablepet.domain.pet.dto.PetSearchCondition;
 import com.lovablepet.domain.pet.dto.PetSort;
 import com.lovablepet.domain.pet.entity.Pet;
 import com.lovablepet.domain.pet.exception.PetException;
+import com.lovablepet.domain.pet.repository.PetCountByName;
 import com.lovablepet.domain.pet.repository.PetRepository;
 import com.lovablepet.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +29,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -108,6 +111,36 @@ class PetQueryServiceTest {
             assertThat(item.thumbnailUrl()).isEqualTo(pet.getPhotoUrls().getFirst());
             assertThat(item.displayName()).isEqualTo(pet.displayName());
         });
+    }
+
+    @Test
+    @DisplayName("필터 선택지: 시도·품종별 마릿수를 한국 날짜 기준으로 집계해 그대로 내려준다")
+    void filterOptions() {
+        LocalDate koreanToday = LocalDate.of(2026, 10, 27);
+        given(petRepository.countAdoptableBySido(koreanToday)).willReturn(List.of(count("경기도", 412), count("서울특별시", 120)));
+        given(petRepository.countAdoptableByKind(koreanToday)).willReturn(List.of(count("믹스견", 1490)));
+
+        PetFilterOptionsResponse options = service().filterOptions();
+
+        assertThat(options.regions()).extracting(PetFilterOptionsResponse.Option::name).containsExactly("경기도", "서울특별시");
+        assertThat(options.kinds()).singleElement().satisfies(kind -> {
+            assertThat(kind.name()).isEqualTo("믹스견");
+            assertThat(kind.count()).isEqualTo(1490);
+        });
+    }
+
+    private static PetCountByName count(String name, long count) {
+        return new PetCountByName() {
+            @Override
+            public String getName() {
+                return name;
+            }
+
+            @Override
+            public long getCount() {
+                return count;
+            }
+        };
     }
 
     private PetQueryService service() {
