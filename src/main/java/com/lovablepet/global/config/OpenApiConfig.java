@@ -24,6 +24,8 @@ public class OpenApiConfig {
               오른쪽 위 **Authorize** 에 로그인·회원가입 응답의 `accessToken` 을 넣으면 이후 요청에 자동으로 붙는다.
             - **토큰 만료**: 액세스 토큰(기본 30분)이 만료되면 `AUTH_401_TOKEN` 이 온다. `POST /api/auth/reissue` 로 재발급하고,
               이때 리프레시 토큰(기본 14일)도 새 값으로 바뀐다. 재발급까지 실패(`AUTH_401_REFRESH`)하면 다시 로그인한다.
+            - **관리자**: `/api/admin/**` 는 `role` 이 `ADMIN` 인 회원만 호출할 수 있다(아니면 `COMMON_403`).
+              `role` 은 로그인·재발급 응답에 들어 있고, 관리자로 지정되면 다음 재발급부터 반영된다.
             - **응답**: 모든 API 는 공통 응답 포맷(ApiResponse)으로 감싼다. 실패하면 `error.code` 로 원인을 구분한다.
             """;
 

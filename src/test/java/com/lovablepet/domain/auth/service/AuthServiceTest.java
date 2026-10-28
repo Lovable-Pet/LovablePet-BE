@@ -10,6 +10,7 @@ import com.lovablepet.domain.auth.repository.LocalCredentialRepository;
 import com.lovablepet.domain.auth.repository.OAuthAccountRepository;
 import com.lovablepet.domain.auth.repository.RefreshTokenRepository;
 import com.lovablepet.domain.member.entity.Member;
+import com.lovablepet.domain.member.entity.MemberRole;
 import com.lovablepet.domain.member.entity.MemberStatus;
 import com.lovablepet.domain.member.repository.MemberRepository;
 import com.lovablepet.global.exception.ErrorCode;
@@ -95,8 +96,11 @@ class AuthServiceTest {
         assertThat(saved.getPasswordHash()).startsWith("{bcrypt}").isNotEqualTo(PASSWORD);
         assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isTrue();
 
-        assertThat(jwtProvider.getMemberId(tokens.accessToken())).isEqualTo(1L);
+        assertThat(jwtProvider.parseAccessToken(tokens.accessToken()).memberId()).isEqualTo(1L);
         assertRefreshTokenStoredAsHash(tokens.refreshToken());
+        // 새 회원은 항상 USER
+        assertThat(tokens.role()).isEqualTo(MemberRole.USER);
+        assertThat(jwtProvider.parseAccessToken(tokens.accessToken()).role()).isEqualTo("USER");
     }
 
     @Test
@@ -128,12 +132,24 @@ class AuthServiceTest {
     @DisplayName("로그인: 올바른 아이디/비밀번호면 토큰을 발급한다 (아이디 대소문자 무시)")
     void login_success() {
         given(localCredentialRepository.findByUsername(USERNAME)).willReturn(Optional.of(credential(1L)));
-        given(memberRepository.existsByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(true);
+        given(memberRepository.findByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(Optional.of(member(1L, MemberRole.USER)));
 
         AuthTokenResponse tokens = authService.loginLocal(" TESTER01", PASSWORD);
 
-        assertThat(jwtProvider.getMemberId(tokens.accessToken())).isEqualTo(1L);
+        assertThat(jwtProvider.parseAccessToken(tokens.accessToken()).memberId()).isEqualTo(1L);
         assertRefreshTokenStoredAsHash(tokens.refreshToken());
+    }
+
+    @Test
+    @DisplayName("로그인: 관리자는 토큰과 응답에 ADMIN 역할이 담긴다")
+    void login_admin() {
+        given(localCredentialRepository.findByUsername(USERNAME)).willReturn(Optional.of(credential(1L)));
+        given(memberRepository.findByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(Optional.of(member(1L, MemberRole.ADMIN)));
+
+        AuthTokenResponse tokens = authService.loginLocal(USERNAME, PASSWORD);
+
+        assertThat(tokens.role()).isEqualTo(MemberRole.ADMIN);
+        assertThat(jwtProvider.parseAccessToken(tokens.accessToken()).role()).isEqualTo("ADMIN");
     }
 
     @Test
@@ -154,7 +170,7 @@ class AuthServiceTest {
     @DisplayName("로그인: 탈퇴한 회원이면 AUTH_INACTIVE_MEMBER")
     void login_inactiveMember() {
         given(localCredentialRepository.findByUsername(USERNAME)).willReturn(Optional.of(credential(1L)));
-        given(memberRepository.existsByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(false);
+        given(memberRepository.findByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.loginLocal(USERNAME, PASSWORD))
                 .isInstanceOf(AuthException.class)
@@ -189,7 +205,7 @@ class AuthServiceTest {
         assertThat(accountCaptor.getValue().getMemberId()).isEqualTo(7L);
         assertThat(accountCaptor.getValue().getProvider()).isEqualTo(OAuthProvider.KAKAO);
         assertThat(accountCaptor.getValue().getProviderSubject()).isEqualTo("12345");
-        assertThat(jwtProvider.getMemberId(tokens.accessToken())).isEqualTo(7L);
+        assertThat(jwtProvider.parseAccessToken(tokens.accessToken()).memberId()).isEqualTo(7L);
     }
 
     @Test
@@ -197,11 +213,11 @@ class AuthServiceTest {
     void oauth_existingAccount() {
         given(oauthAccountRepository.findByProviderAndProviderSubject(OAuthProvider.KAKAO, "12345"))
                 .willReturn(Optional.of(OAuthAccount.create(3L, OAuthProvider.KAKAO, "12345")));
-        given(memberRepository.existsByIdAndStatus(3L, MemberStatus.ACTIVE)).willReturn(true);
+        given(memberRepository.findByIdAndStatus(3L, MemberStatus.ACTIVE)).willReturn(Optional.of(member(3L, MemberRole.USER)));
 
         AuthTokenResponse tokens = authService.loginWithOAuth(OAuthProvider.KAKAO, "12345", "카카오유저");
 
-        assertThat(jwtProvider.getMemberId(tokens.accessToken())).isEqualTo(3L);
+        assertThat(jwtProvider.parseAccessToken(tokens.accessToken()).memberId()).isEqualTo(3L);
         verify(memberRepository, never()).save(any());
         verify(oauthAccountRepository, never()).save(any());
     }
@@ -214,13 +230,27 @@ class AuthServiceTest {
         String oldRawToken = jwtProvider.createRefreshToken();
         RefreshToken stored = RefreshToken.create(1L, hashService.hash(oldRawToken), LocalDateTime.now().plusDays(1));
         given(refreshTokenRepository.findByTokenHash(hashService.hash(oldRawToken))).willReturn(Optional.of(stored));
-        given(memberRepository.existsByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(true);
+        given(memberRepository.findByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(Optional.of(member(1L, MemberRole.USER)));
 
         AuthTokenResponse tokens = authService.reissueToken(oldRawToken);
 
         assertThat(tokens.refreshToken()).isNotEqualTo(oldRawToken);
         assertThat(stored.getTokenHash()).isEqualTo(hashService.hash(tokens.refreshToken()));
-        assertThat(jwtProvider.getMemberId(tokens.accessToken())).isEqualTo(1L);
+        assertThat(jwtProvider.parseAccessToken(tokens.accessToken()).memberId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("재발급: 역할을 DB에서 다시 읽어, 관리자로 지정된 뒤 재발급하면 ADMIN 토큰이 나온다")
+    void reissue_picksUpCurrentRole() {
+        String rawToken = jwtProvider.createRefreshToken();
+        RefreshToken stored = RefreshToken.create(1L, hashService.hash(rawToken), LocalDateTime.now().plusDays(1));
+        given(refreshTokenRepository.findByTokenHash(hashService.hash(rawToken))).willReturn(Optional.of(stored));
+        given(memberRepository.findByIdAndStatus(1L, MemberStatus.ACTIVE)).willReturn(Optional.of(member(1L, MemberRole.ADMIN)));
+
+        AuthTokenResponse tokens = authService.reissueToken(rawToken);
+
+        assertThat(tokens.role()).isEqualTo(MemberRole.ADMIN);
+        assertThat(jwtProvider.parseAccessToken(tokens.accessToken()).role()).isEqualTo("ADMIN");
     }
 
     @Test
@@ -260,6 +290,14 @@ class AuthServiceTest {
 
     private LocalCredential credential(Long memberId) {
         return LocalCredential.create(memberId, USERNAME, EMAIL, passwordEncoder.encode(PASSWORD));
+    }
+
+    /** DB에서 읽어 온 회원. 역할은 운영 DB에서 직접 바꾸므로 테스트에서도 필드로 넣는다. */
+    private Member member(long id, MemberRole role) {
+        Member member = Member.create("댕댕이");
+        ReflectionTestUtils.setField(member, "id", id);
+        ReflectionTestUtils.setField(member, "role", role);
+        return member;
     }
 
     /** save 시 DB가 BIGSERIAL id를 채워 주는 동작을 흉내 낸다. */
