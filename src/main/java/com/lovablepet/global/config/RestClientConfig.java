@@ -37,6 +37,16 @@ public class RestClientConfig {
                 .build();
     }
 
+    /**
+     * 공공데이터포털 구조동물 조회용. pet 도메인의 PublicAnimalClient 가 인증키까지 인코딩한 전체 URI 를 넘긴다.
+     */
+    @Bean
+    public RestClient publicAnimalRestClient(RestClient.Builder builder, PublicAnimalProperties properties) {
+        return builder
+                .requestFactory(requestFactory(properties.connectTimeout(), properties.readTimeout()))
+                .build();
+    }
+
     @Bean
     public RestClient kakaoAuthRestClient(RestClient.Builder builder, KakaoOAuthProperties properties) {
         return builder
