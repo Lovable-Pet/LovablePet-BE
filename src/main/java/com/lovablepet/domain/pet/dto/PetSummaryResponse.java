@@ -36,10 +36,13 @@ public record PetSummaryResponse(
         String thumbnailUrl,
 
         @Schema(description = "공고 시작일", example = "2026-10-12")
-        LocalDate noticeStart
+        LocalDate noticeStart,
+
+        @Schema(description = "AR 모델이 있는지", example = "false")
+        boolean hasModel
 ) {
 
-    public static PetSummaryResponse from(Pet pet) {
+    public static PetSummaryResponse from(Pet pet, boolean hasModel) {
         return new PetSummaryResponse(
                 pet.getId(),
                 pet.displayName(),
@@ -50,6 +53,7 @@ public record PetSummaryResponse(
                 pet.getOrgName(),
                 pet.getCareName(),
                 pet.getPhotoUrls().isEmpty() ? null : pet.getPhotoUrls().getFirst(),
-                pet.getNoticeStart());
+                pet.getNoticeStart(),
+                hasModel);
     }
 }

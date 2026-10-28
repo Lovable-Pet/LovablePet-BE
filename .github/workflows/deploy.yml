@@ -98,6 +98,9 @@ jobs:
           curl -fsS 'localhost:8080/api/pets?region=%EA%B2%BD%EA%B8%B0%EB%8F%84&minWeight=1&sort=OLDEST' | grep -q '"resultType":"SUCCESS"'
           curl -fsS localhost:8080/api/pets/filters | grep -q '"resultType":"SUCCESS"'
           curl -sS localhost:8080/api/pets/999999 | grep -q '"PET_404"'
+          curl -fsS 'localhost:8080/api/pets?hasModel=true' | grep -q '"resultType":"SUCCESS"'
+          # GLB 파일 주소는 로그인 없이 열린다 (없는 파일이라 401 이 아니라 404)
+          [ "$(curl -sS -o /dev/null -w '%{http_code}' localhost:8080/models/0/none.glb)" = 404 ]
 
           # 자동 생성 보안 비밀번호가 기동 로그에 남지 않는지
           if docker logs smoke 2>&1 | grep -q "generated security password"; then

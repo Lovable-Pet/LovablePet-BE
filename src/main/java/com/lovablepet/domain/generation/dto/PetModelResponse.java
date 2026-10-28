@@ -47,6 +47,9 @@ public record PetModelResponse(
         @Schema(description = "실패 사유")
         String error,
 
+        @Schema(description = "완성된 GLB 주소 (완성 전 null)", example = "/models/448567202600123/448567202600123-a5ca257e.glb")
+        String glbUrl,
+
         @Schema(description = "체고(m). 표시용 — GLB 가 이미 실제 크기라 AR 에서 크기를 다시 조정하지 않는다", example = "0.546")
         BigDecimal withersM,
 
@@ -64,10 +67,10 @@ public record PetModelResponse(
         Instant finishedAt
 ) {
 
-    public static PetModelResponse from(PetModel model) {
+    public static PetModelResponse from(PetModel model, String glbUrl) {
         return new PetModelResponse(model.getId(), model.getPetId(), model.getStatus(), model.getJobId(),
                 model.getPhotoUrl(), model.getWeightKg(), model.isForced(), model.getFitLevel(), model.getFitScore(),
-                model.getTemplate(), model.getReasons(), model.getError(), model.getWithersM(), model.getTapAnimation(),
+                model.getTemplate(), model.getReasons(), model.getError(), glbUrl, model.getWithersM(), model.getTapAnimation(),
                 model.getPlaybackRate(), model.getCostUsd(), model.getCreatedAt(), model.getFinishedAt());
     }
 }

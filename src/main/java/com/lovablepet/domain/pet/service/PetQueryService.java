@@ -1,7 +1,11 @@
 package com.lovablepet.domain.pet.service;
 
+import com.lovablepet.domain.generation.entity.PetModelStatus;
+import com.lovablepet.domain.generation.repository.PetModelRepository;
+import com.lovablepet.domain.generation.service.PetModelFiles;
 import com.lovablepet.domain.pet.dto.PetDetailResponse;
 import com.lovablepet.domain.pet.dto.PetFilterOptionsResponse;
+import com.lovablepet.domain.pet.dto.PetModelView;
 import com.lovablepet.domain.pet.dto.PetPageResponse;
 import com.lovablepet.domain.pet.dto.PetSearchCondition;
 import com.lovablepet.domain.pet.dto.PetSort;
@@ -13,6 +17,7 @@ import com.lovablepet.domain.pet.repository.PetRepository;
 import com.lovablepet.domain.pet.repository.PetSpecifications;
 import com.lovablepet.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -24,6 +29,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 유기견 목록·상세 조회. 목록에는 입양 가능한(보호중이고 공고 기간이 끝난) 동물만 나온다.
@@ -37,6 +43,8 @@ public class PetQueryService {
     private static final Sort OLDEST = Sort.by(Sort.Order.asc("noticeStart"), Sort.Order.asc("id"));
 
     private final PetRepository petRepository;
+    private final PetModelRepository petModelRepository;
+    private final PetModelFiles modelFiles;
     private final Clock clock;
 
     public PetPageResponse search(PetSearchCondition condition, int page, int size) {
@@ -54,17 +62,24 @@ public class PetQueryService {
         if (condition.maxWeight() != null) {
             specs.add(PetSpecifications.weightAtMost(condition.maxWeight()));
         }
+        if (condition.hasModel() != null) {
+            specs.add(PetSpecifications.hasModel(condition.hasModel()));
+        }
         Sort sort = condition.sort() == PetSort.OLDEST ? OLDEST : NEWEST;
 
-        return PetPageResponse.from(petRepository
-                .findAll(Specification.allOf(specs), PageRequest.of(page, size, sort))
-                .map(PetSummaryResponse::from));
+        Page<Pet> pets = petRepository.findAll(Specification.allOf(specs), PageRequest.of(page, size, sort));
+        Set<Long> withModel = pets.isEmpty() ? Set.of()
+                : petModelRepository.findPetIdsByStatus(pets.map(Pet::getId).getContent(), PetModelStatus.DONE);
+        return PetPageResponse.from(pets.map(pet -> PetSummaryResponse.from(pet, withModel.contains(pet.getId()))));
     }
 
     /** 입양·반환 등으로 목록에서 빠진 동물도 조회된다 (찜 목록에서 열 때). adoptable 로 구분한다. */
     public PetDetailResponse get(Long id) {
         Pet pet = petRepository.findById(id).orElseThrow(() -> new PetException(ErrorCode.PET_NOT_FOUND));
-        return PetDetailResponse.of(pet, today());
+        PetModelView model = petModelRepository.findByPetIdAndStatus(id, PetModelStatus.DONE)
+                .map(done -> PetModelView.of(done, modelFiles.publicUrl(done.getGlbPath())))
+                .orElse(null);
+        return PetDetailResponse.of(pet, today(), model);
     }
 
     public PetFilterOptionsResponse filterOptions() {

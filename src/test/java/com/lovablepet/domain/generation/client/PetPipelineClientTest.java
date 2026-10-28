@@ -126,7 +126,7 @@ class PetPipelineClientTest {
     private PetPipelineClient client(RestClient.Builder builder, String scripted) {
         PetPipelineProperties properties = new PetPipelineProperties(BASE_URL, "key",
                 "http://spring:8080/internal/pet-models/callback", "models",
-                Duration.ofSeconds(10), Duration.ofSeconds(90), scripted, 30);
+                Duration.ofSeconds(10), Duration.ofSeconds(90), scripted, 30, "/models");
         return new PetPipelineClient(builder.build(), jsonMapper, properties);
     }
 }

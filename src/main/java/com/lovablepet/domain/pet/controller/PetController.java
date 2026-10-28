@@ -48,6 +48,8 @@ public class PetController {
             @RequestParam(required = false) @DecimalMin("0") BigDecimal minWeight,
             @Parameter(description = "최대 체중(kg)", example = "15")
             @RequestParam(required = false) @DecimalMin("0") BigDecimal maxWeight,
+            @Parameter(description = "true: AR 모델이 있는 개만, false: 없는 개만 (관리자가 만들 개 찾기). 비우면 전체")
+            @RequestParam(required = false) Boolean hasModel,
             @Parameter(description = "NEWEST: 최근 공고순, OLDEST: 오래 기다린 순")
             @RequestParam(defaultValue = "NEWEST") PetSort sort,
             @Parameter(description = "페이지 (0부터)")
@@ -55,7 +57,7 @@ public class PetController {
             @Parameter(description = "페이지 크기 (최대 100)")
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return ApiResponse.ok(petQueryService.search(
-                new PetSearchCondition(region, kind, minWeight, maxWeight, sort), page, size));
+                new PetSearchCondition(region, kind, minWeight, maxWeight, hasModel, sort), page, size));
     }
 
     @Operation(summary = "목록 필터 선택지",

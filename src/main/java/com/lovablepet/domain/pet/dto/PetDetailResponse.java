@@ -79,10 +79,13 @@ public record PetDetailResponse(
         String specialMark,
 
         @Schema(description = "사진 주소 (https, 중복 제거)")
-        List<String> photoUrls
+        List<String> photoUrls,
+
+        @Schema(description = "AR 모델. 아직 만들지 않았으면 null. weightKg 가 null 인 개는 실제 크기를 알 수 없어 만들 수 없다")
+        PetModelView model
 ) {
 
-    public static PetDetailResponse of(Pet pet, LocalDate today) {
+    public static PetDetailResponse of(Pet pet, LocalDate today, PetModelView model) {
         return new PetDetailResponse(
                 pet.getId(),
                 pet.getDesertionNo(),
@@ -106,6 +109,7 @@ public record PetDetailResponse(
                 pet.getCareTel(),
                 pet.getCareAddr(),
                 pet.getSpecialMark(),
-                pet.getPhotoUrls());
+                pet.getPhotoUrls(),
+                model);
     }
 }
