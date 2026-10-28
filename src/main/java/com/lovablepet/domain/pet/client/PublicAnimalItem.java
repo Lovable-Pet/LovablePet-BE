@@ -131,7 +131,7 @@ public final class PublicAnimalItem {
         return matcher.find() ? Integer.valueOf(matcher.group(1)) : null;
     }
 
-    /** 원본 수정 시각(updTm). 한국 시각으로 오는 값을 절대 시각으로 바꾼다. 매일 동기화에서 "마지막으로 받은 시점"으로 쓴다. */
+    /** 원본 수정 시각(updTm). 한국 시각으로 오는 값을 절대 시각으로 바꾼다. 동기화에서 "지난번 이후 수정분"을 받을 기준으로 쓴다. */
     public Instant updatedAt() {
         String value = text("updTm");
         if (value == null || value.length() < 19) {

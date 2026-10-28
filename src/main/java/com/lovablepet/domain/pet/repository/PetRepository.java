@@ -14,10 +14,6 @@ public interface PetRepository extends JpaRepository<Pet, Long> {
 
     List<Pet> findAllByDesertionNoIn(Collection<String> desertionNos);
 
-    /** 마지막으로 동기화한 시각. 비어 있으면 null. */
-    @Query("select max(p.syncedAt) from Pet p")
-    Instant findLatestSyncedAt();
-
     /** 받아 둔 원본 중 가장 최근 수정 시각. 비어 있으면 null. */
     @Query("select max(p.sourceUpdatedAt) from Pet p")
     Instant findLatestSourceUpdatedAt();
