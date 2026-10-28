@@ -1,5 +1,6 @@
 package com.lovablepet.domain.generation.service;
 
+import com.lovablepet.domain.generation.client.PetPipelineDtos.Job;
 import com.lovablepet.domain.generation.entity.PetModel;
 import com.lovablepet.domain.generation.exception.GenerationException;
 import com.lovablepet.domain.generation.repository.PetModelRepository;
@@ -8,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
 
 /**
  * pet_model 쓰기. 파이프라인 호출(수 초~수십 초) 동안 DB 트랜잭션을 잡지 않도록 쓰기를 짧은 트랜잭션으로 나눈다.
@@ -38,5 +41,23 @@ public class PetModelWriter {
     @Transactional
     public void delete(Long id) {
         petModelRepository.deleteById(id);
+    }
+
+    /**
+     * 만드는 중(PENDING)일 때만 파이프라인 결과를 반영한다. 이미 끝났으면 false.
+     * 다른 트랜잭션이 동시에 반영하면 커밋할 때 ObjectOptimisticLockingFailureException(@Version)이 난다.
+     */
+    @Transactional
+    public boolean finish(Long id, Job job, String glbPath, Instant now) {
+        PetModel model = petModelRepository.findById(id).orElse(null);
+        if (model == null || !model.isPending()) {
+            return false;
+        }
+        if ("done".equals(job.status())) {
+            model.complete(job, glbPath, now);
+        } else {
+            model.finishWithoutModel(job, now);
+        }
+        return true;
     }
 }
