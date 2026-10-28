@@ -42,6 +42,14 @@ pet-pipeline:
   connect-timeout: ${PET_PIPELINE_CONNECT_TIMEOUT:10s}
   read-timeout: ${PET_PIPELINE_READ_TIMEOUT:90s}
 
+# 공공데이터포털 구조동물 조회 서비스 (농림축산검역본부) — 유기견을 매일 pet 테이블로 동기화한다
+public-animal:
+  base-url: https://apis.data.go.kr/1543061/abandonmentPublicService_v2
+  service-key: ${DATA_GO_KR_SERVICE_KEY:}   # 비어 있으면 동기화를 건너뛴다 (로컬·CI)
+  page-size: 1000                            # API 최대값
+  connect-timeout: 10s
+  read-timeout: 60s
+
 # 업로드 파일 저장 루트 (로컬 구현용, 추후 S3로 교체 예정)
 storage:
   root: ${STORAGE_ROOT:./storage}
