@@ -73,6 +73,11 @@ jobs:
           # 콜백 경로가 JWT 인증에 막히지 않고 컨트롤러의 키 검사까지 오는지 (Security 에서 막히면 COMMON_401)
           curl -sS -X POST localhost:8080/internal/pet-models/callback \
             -H 'Content-Type: application/json' -d '{}' | grep -q GENERATION_401_KEY
+
+          # 자동 생성 보안 비밀번호가 기동 로그에 남지 않는지
+          if docker logs smoke 2>&1 | grep -q "generated security password"; then
+            echo "기동 로그에 자동 생성 비밀번호가 있다 (UserDetailsServiceAutoConfiguration)"; exit 1
+          fi
           docker rm -f smoke smoke-db
 
       - name: Smoke test logs
@@ -129,8 +134,15 @@ jobs:
             echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
             export SPRING_IMAGE="ghcr.io/${REPO,,}:$SHA"
             docker compose pull
+            # 서버에서 직접 docker compose 를 실행하면 SPRING_IMAGE 가 없어 :latest 를 찾는다.
+            # GHCR 은 private 이라 로그인 없이 받을 수 없으므로 받은 이미지에 latest 태그를 로컬로 붙여 둔다
+            docker tag "$SPRING_IMAGE" "ghcr.io/${REPO,,}:latest"
             docker compose up -d --remove-orphans
             docker logout ghcr.io
             docker image prune -f
             curl -fsS --retry 30 --retry-delay 2 --retry-all-errors localhost:8080/actuator/health \
               || { docker logs --tail 100 spring; exit 1; }
+
+            # 배포마다 커밋 해시 태그 이미지가 하나씩 남는다(prune -f 는 태그 없는 이미지만 지움).
+            # 새 컨테이너가 정상으로 뜬 뒤, 컨테이너가 쓰지 않는 이 저장소 이미지만 지운다 (파이프라인·postgres 는 라벨이 달라 남는다)
+            docker image prune -af --filter "label=org.opencontainers.image.source=https://github.com/$REPO"
