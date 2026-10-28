@@ -31,6 +31,7 @@ public class CorsConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);
+        source.registerCorsConfiguration("/models/**", config); // AR 페이지(다른 도메인)가 GLB 를 불러온다
         return source;
     }
 }

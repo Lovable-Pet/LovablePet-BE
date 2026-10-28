@@ -55,6 +55,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/pets", "/api/pets/**").permitAll() // 유기견 목록·상세는 로그인 없이
+                        .requestMatchers(HttpMethod.GET, "/models/**").permitAll() // AR 모델(GLB) 파일
                         .requestMatchers("/api/admin/**").hasRole("ADMIN") // 역할이 없으면 403 (COMMON_403)
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class)

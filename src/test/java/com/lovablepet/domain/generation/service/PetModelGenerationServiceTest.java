@@ -75,7 +75,7 @@ class PetModelGenerationServiceTest {
     @BeforeEach
     void setUp() {
         PetPipelineProperties properties = new PetPipelineProperties("http://pipeline:8000", "key", "", "models",
-                Duration.ofSeconds(10), Duration.ofSeconds(90), null, 30);
+                Duration.ofSeconds(10), Duration.ofSeconds(90), null, 30, "/models");
         service = new PetModelGenerationService(petRepository, petModelRepository, writer, pipelineClient, photoSource,
                 properties, Clock.fixed(NOW, ZoneOffset.UTC));
     }

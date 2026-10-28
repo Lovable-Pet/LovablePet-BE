@@ -46,8 +46,31 @@ class PetModelFilesTest {
         }
     }
 
+    @Test
+    @DisplayName("앱에 내려주는 주소: model-base-url + 상대 경로. 저장 전이면 null")
+    void publicUrl() {
+        assertThat(files().publicUrl("448567202600123/j1.glb")).isEqualTo("/models/448567202600123/j1.glb");
+        assertThat(files().publicUrl(null)).isNull();
+        PetModelFiles cdn = new PetModelFiles(new PetPipelineProperties("http://pipeline:8000", "key", "", "models",
+                Duration.ofSeconds(10), Duration.ofSeconds(90), null, 30, "https://cdn.example.com/models/"));
+        assertThat(cdn.publicUrl("1/j1.glb")).isEqualTo("https://cdn.example.com/models/1/j1.glb");
+    }
+
+    @Test
+    @DisplayName("파일 찾기: 저장한 GLB 만 찾고, 없는 파일·.glb 가 아닌 이름·경로를 벗어나는 이름은 empty")
+    void findGlb() {
+        PetModelFiles files = files();
+        files.saveGlb("448567202600123", "448567202600123-a5ca257e", new byte[]{1});
+
+        assertThat(files.findGlb("448567202600123", "448567202600123-a5ca257e.glb")).isPresent();
+        assertThat(files.findGlb("448567202600123", "nope.glb")).isEmpty();
+        assertThat(files.findGlb("448567202600123", "448567202600123-a5ca257e.tmp")).isEmpty();
+        assertThat(files.findGlb("..", "448567202600123-a5ca257e.glb")).isEmpty();
+        assertThat(files.findGlb("448567202600123", "..glb")).isEmpty();
+    }
+
     private PetModelFiles files() {
         return new PetModelFiles(new PetPipelineProperties("http://pipeline:8000", "key", "",
-                tempDir.resolve("models").toString(), Duration.ofSeconds(10), Duration.ofSeconds(90), null, 30));
+                tempDir.resolve("models").toString(), Duration.ofSeconds(10), Duration.ofSeconds(90), null, 30, "/models"));
     }
 }

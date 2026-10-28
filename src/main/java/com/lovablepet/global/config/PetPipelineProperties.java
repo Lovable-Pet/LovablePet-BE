@@ -22,6 +22,8 @@ public record PetPipelineProperties(
         // POST /v1/fit 은 5~20초, 배포 직후 첫 호출은 배경 제거 Lambda 와 생김새 모델을 처음 읽느라 30초 넘게 걸린다. 줄이지 말 것
         @DefaultValue("90s") Duration readTimeout,
         String scripted,                // 비용 없는 오프라인 대본 이름(예: black_shiba). 연동 시험용, 운영에서는 비워 둔다
-        @DefaultValue("30") int dailyLimit   // 하루(한국 날짜) AR 생성 시도 상한. 실패한 시도도 비용이 들어 센다
+        @DefaultValue("30") int dailyLimit,  // 하루(한국 날짜) AR 생성 시도 상한. 실패한 시도도 비용이 들어 센다
+        // 앱에 내려주는 GLB 주소 앞부분. 기본은 이 서버의 /models (API 주소 기준 경로). S3·CloudFront 로 옮기면 그 주소
+        @NotBlank @DefaultValue("/models") String modelBaseUrl
 ) {
 }
