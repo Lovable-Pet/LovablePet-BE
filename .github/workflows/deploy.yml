@@ -66,9 +66,17 @@ jobs:
             -e JWT_SECRET="$(openssl rand -base64 32)" -e TOKEN_HASH_SECRET=smoke \
             -e ACCESS_TOKEN_EXPIRATION=1800000 -e REFRESH_TOKEN_EXPIRATION=1209600000 \
             -e KAKAO_REST_API_KEY= -e KAKAO_CLIENT_SECRET= -e KAKAO_REDIRECT_URI= \
-            -e CORS_ALLOWED_ORIGINS=http://localhost:5173 \
+            -e CORS_ALLOWED_ORIGINS=http://localhost:5173 -e SWAGGER_ENABLED=true \
             "$IMAGE:${{ github.sha }}"
           curl -fsS --retry 30 --retry-delay 2 --retry-all-errors localhost:8080/actuator/health
+
+          # Swagger 문서가 만들어지는지, 앱이 부르지 않는 내부 콜백은 문서에서 빠졌는지
+          curl -fsS localhost:8080/v3/api-docs -o "$RUNNER_TEMP/api-docs.json"
+          grep -q '"/api/auth/login"' "$RUNNER_TEMP/api-docs.json"
+          if grep -q '/internal/' "$RUNNER_TEMP/api-docs.json"; then
+            echo "내부 콜백 경로가 Swagger 문서에 노출됐다"; exit 1
+          fi
+          curl -fsS -o /dev/null localhost:8080/swagger-ui/index.html
 
           # 콜백 경로가 JWT 인증에 막히지 않고 컨트롤러의 키 검사까지 오는지 (Security 에서 막히면 COMMON_401)
           curl -sS -X POST localhost:8080/internal/pet-models/callback \
