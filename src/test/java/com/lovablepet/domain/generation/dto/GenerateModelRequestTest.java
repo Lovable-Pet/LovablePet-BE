@@ -17,7 +17,6 @@ class GenerateModelRequestTest {
 
         assertThat(request.photoIndex()).isEqualTo(1);
         assertThat(request.force()).isFalse();
-        assertThat(request.weightKg()).isNull();
         assertThat(jsonMapper.readValue("{\"photoIndex\":0,\"force\":true}", GenerateModelRequest.class).force()).isTrue();
     }
 }

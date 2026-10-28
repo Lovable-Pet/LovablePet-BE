@@ -40,7 +40,7 @@ public class AdminPetModelController {
                     + "- `canGenerate=false`: 사진이 거부됨(사람 손이 가림, 여러 마리 등) → 다른 사진을 고르게 한다. force 로도 못 만든다\n"
                     + "- `needsForce=true`: 템플릿 부적합 → 만들어도 그 개처럼 안 보일 수 있어 force 로만 만든다\n"
                     + "- 사진이 거부되면 `withersM`·`photoLevel`·`template` 은 null\n\n"
-                    + "실패: `PET_404` 없는 동물, `GENERATION_400_WEIGHT` 체중을 알 수 없음(weightKg 입력), `GENERATION_400_PHOTO` 사진 번호 오류, "
+                    + "실패: `PET_404` 없는 동물, `GENERATION_400_WEIGHT` 공고 체중을 알 수 없음(상세의 weightKg 가 null 인 개는 만들 수 없다), `GENERATION_400_PHOTO` 사진 번호 오류, "
                     + "`GENERATION_502_PHOTO` 사진을 받을 수 없음, `EXTERNAL_502`·`EXTERNAL_504` 파이프라인 오류")
     @PostMapping("/pets/{id}/model/fit")
     public ApiResponse<FitCheckResponse> checkFit(@PathVariable Long id, @Valid @RequestBody FitCheckRequest request) {

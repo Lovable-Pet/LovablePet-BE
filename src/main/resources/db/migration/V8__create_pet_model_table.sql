@@ -6,7 +6,7 @@ CREATE TABLE pet_model (
     job_id        VARCHAR(100)  UNIQUE,        -- 파이프라인 작업 ID. 작업을 등록하는 동안에는 비어 있다
     status        VARCHAR(20)   NOT NULL CHECK (status IN ('PENDING', 'DONE', 'PHOTO_REJECTED', 'UNSUITABLE', 'FAILED')),
     photo_url     TEXT          NOT NULL,      -- 관리자가 고른 사진
-    weight_kg     NUMERIC(5, 2) NOT NULL,      -- 실제로 쓴 체중 (관리자가 넣었으면 그 값). 모델 크기(체고)를 정한다
+    weight_kg     NUMERIC(5, 2) NOT NULL,      -- 만들 때 쓴 공고 체중. 모델 크기(체고)를 정한다
     forced        BOOLEAN       NOT NULL,      -- 템플릿 부적합이어도 끝까지 만들기 (fit_stop 끔). 사진 거부는 못 넘는다
     requested_by  BIGINT        REFERENCES member (id),
     fit_level     VARCHAR(10),                 -- good | fair | poor

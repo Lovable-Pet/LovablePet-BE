@@ -96,15 +96,15 @@ class PetModelGenerationServiceTest {
     }
 
     @Test
-    @DisplayName("적합도: 관리자가 넣은 체중으로 판정하고, 사진 거부 여부를 기억하고, 거부면 canGenerate=false")
+    @DisplayName("적합도: 공고 체중으로 판정하고, 사진 거부 여부를 기억하고, 거부면 canGenerate=false")
     void checkFit_rejectedPhoto() {
-        given(petRepository.findById(7L)).willReturn(Optional.of(pet("N", "205(Kg)")));
+        given(petRepository.findById(7L)).willReturn(Optional.of(pet("N", "20.5(Kg)")));
         given(photoSource.get(PHOTO_1)).willReturn(PHOTO);
         Fit fit = new Fit("poor", "부적합", null, List.of("사람 손이 털을 가림"), List.of(), null, null, null, null, null,
                 List.of("person_covers"));
         given(pipelineClient.fit(any(), eq(PHOTO))).willReturn(new FitResult("448567202600123", fit, null, null, null));
 
-        FitCheckResponse response = service.checkFit(7L, new FitCheckRequest(1, new BigDecimal("20.5")));
+        FitCheckResponse response = service.checkFit(7L, new FitCheckRequest(1));
 
         ArgumentCaptor<PetRecord> record = ArgumentCaptor.forClass(PetRecord.class);
         verify(pipelineClient).fit(record.capture(), eq(PHOTO));
@@ -132,7 +132,7 @@ class PetModelGenerationServiceTest {
             return withId(model, 12L);
         });
 
-        PetModelResponse response = service.requestGeneration(7L, new GenerateModelRequest(0, null, false), 3L);
+        PetModelResponse response = service.requestGeneration(7L, new GenerateModelRequest(0, false), 3L);
 
         ArgumentCaptor<PetModel> reserved = ArgumentCaptor.forClass(PetModel.class);
         verify(writer).reserve(reserved.capture());
@@ -154,7 +154,7 @@ class PetModelGenerationServiceTest {
         given(writer.attachJob(12L, "j1")).willAnswer(invocation ->
                 withId(PetModel.reserve(7L, PHOTO_0, BigDecimal.ONE, true, 3L, NOW), 12L));
 
-        service.requestGeneration(7L, new GenerateModelRequest(0, null, true), 3L);
+        service.requestGeneration(7L, new GenerateModelRequest(0, true), 3L);
 
         verify(pipelineClient).createJob(any(), eq(PHOTO), eq(false));
     }
@@ -168,7 +168,7 @@ class PetModelGenerationServiceTest {
         given(writer.reserve(any())).willAnswer(invocation -> withId(invocation.getArgument(0), 12L));
         given(pipelineClient.createJob(any(), any(), anyBoolean())).willThrow(new ResourceAccessException("connection refused"));
 
-        assertThatThrownBy(() -> service.requestGeneration(7L, new GenerateModelRequest(0, null, false), 3L))
+        assertThatThrownBy(() -> service.requestGeneration(7L, new GenerateModelRequest(0, false), 3L))
                 .isInstanceOf(ResourceAccessException.class);
         verify(writer).delete(12L);
         verify(writer, never()).attachJob(any(), any());
@@ -179,36 +179,38 @@ class PetModelGenerationServiceTest {
     void requestGeneration_blockedByExistingModel() {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet("Y", "5.5(Kg)")));
         given(petModelRepository.existsByPetIdAndStatus(7L, PetModelStatus.DONE)).willReturn(true);
-        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, null, true), 3L),
+        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, true), 3L),
                 ErrorCode.GENERATION_MODEL_EXISTS);
 
         given(petModelRepository.existsByPetIdAndStatus(7L, PetModelStatus.DONE)).willReturn(false);
         given(petModelRepository.existsByPetIdAndStatus(7L, PetModelStatus.PENDING)).willReturn(true);
-        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, null, false), 3L),
+        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, false), 3L),
                 ErrorCode.GENERATION_IN_PROGRESS);
         verify(pipelineClient, never()).createJob(any(), any(), anyBoolean());
     }
 
     @Test
-    @DisplayName("생성 막기: 체중을 알 수 없으면(205(Kg) 등) 400, 관리자가 체중을 넣으면 그 값으로 만든다")
-    void requestGeneration_weightRequired() {
+    @DisplayName("생성 막기: 공고 체중을 숫자로 못 바꾼 개(205(Kg) 등)는 실제 크기를 알 수 없어 적합도 확인도 생성도 400")
+    void weightUnknown_blocked() {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet("Y", "205(Kg)")));
 
-        assertThatThrownBy(() -> service.requestGeneration(7L, new GenerateModelRequest(0, null, false), 3L))
+        assertThatThrownBy(() -> service.requestGeneration(7L, new GenerateModelRequest(0, false), 3L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("205(Kg)")
-                .extracting("errorCode").isEqualTo(ErrorCode.GENERATION_WEIGHT_REQUIRED);
+                .extracting("errorCode").isEqualTo(ErrorCode.GENERATION_WEIGHT_UNKNOWN);
+        assertError(() -> service.checkFit(7L, new FitCheckRequest(0)), ErrorCode.GENERATION_WEIGHT_UNKNOWN);
+        verify(pipelineClient, never()).fit(any(), any());
     }
 
     @Test
     @DisplayName("생성 막기: 사진 번호가 범위 밖이면 400, 적합도 확인에서 거부된 사진이면 force 여도 400")
     void requestGeneration_photoChecks() {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet("Y", "5.5(Kg)")));
-        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(2, null, false), 3L),
+        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(2, false), 3L),
                 ErrorCode.GENERATION_INVALID_PHOTO);
 
         given(photoSource.rejection(PHOTO_1)).willReturn(List.of("several_animals"));
-        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(1, null, true), 3L),
+        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(1, true), 3L),
                 ErrorCode.GENERATION_PHOTO_REJECTED);
         verify(writer, never()).reserve(any());
     }
@@ -220,7 +222,7 @@ class PetModelGenerationServiceTest {
         given(photoSource.rejection(PHOTO_0)).willReturn(List.of());
         given(petModelRepository.countByCreatedAtGreaterThanEqual(START_OF_TODAY_KST)).willReturn(30L);
 
-        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, null, false), 3L),
+        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, false), 3L),
                 ErrorCode.GENERATION_DAILY_LIMIT);
         verify(writer, never()).reserve(any());
     }

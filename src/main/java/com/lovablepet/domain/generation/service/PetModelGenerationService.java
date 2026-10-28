@@ -55,7 +55,7 @@ public class PetModelGenerationService {
     /** 5~20초, 약 $0.02. 받은 사진과 판정(사진 거부 여부)은 30분 동안 기억해 생성 때 쓴다 */
     public FitCheckResponse checkFit(Long petId, FitCheckRequest request) {
         Pet pet = findPet(petId);
-        BigDecimal weightKg = weight(pet, request.weightKg());
+        BigDecimal weightKg = weight(pet);
         String photoUrl = photoUrl(pet, request.photoIndex());
 
         FitResult result = pipelineClient.fit(record(pet, weightKg), photoSource.get(photoUrl));
@@ -71,7 +71,7 @@ public class PetModelGenerationService {
         if (petModelRepository.existsByPetIdAndStatus(petId, PetModelStatus.PENDING)) {
             throw new GenerationException(ErrorCode.GENERATION_IN_PROGRESS);
         }
-        BigDecimal weightKg = weight(pet, request.weightKg());
+        BigDecimal weightKg = weight(pet);
         String photoUrl = photoUrl(pet, request.photoIndex());
         if (!photoSource.rejection(photoUrl).isEmpty()) {
             throw new GenerationException(ErrorCode.GENERATION_PHOTO_REJECTED);
@@ -129,16 +129,16 @@ public class PetModelGenerationService {
         return petRepository.findById(petId).orElseThrow(() -> new PetException(ErrorCode.PET_NOT_FOUND));
     }
 
-    /** 관리자가 넣은 체중이 먼저, 없으면 공고 체중. 둘 다 없으면 만들 수 없다 (체중이 모델의 실제 크기를 정한다) */
-    private static BigDecimal weight(Pet pet, BigDecimal requested) {
-        if (requested != null) {
-            return requested;
+    /**
+     * 공고 체중. 체중이 모델의 실제 크기(체고)를 정하므로, 숫자로 바꾸지 못한 공고(0(Kg), 205(Kg) 등)는 만들 수 없다.
+     * 우리는 공고를 중계할 뿐이라 관리자도 실제 체중을 모른다 — 추측한 체중으로 만들면 "실제 크기"가 틀린다.
+     */
+    private static BigDecimal weight(Pet pet) {
+        if (pet.getWeightKg() == null) {
+            throw new GenerationException(ErrorCode.GENERATION_WEIGHT_UNKNOWN,
+                    "공고 체중(" + pet.getWeightText() + ")을 알 수 없어 실제 크기로 만들 수 없습니다.");
         }
-        if (pet.getWeightKg() != null) {
-            return pet.getWeightKg();
-        }
-        throw new GenerationException(ErrorCode.GENERATION_WEIGHT_REQUIRED,
-                "체중을 알 수 없습니다(공고: " + pet.getWeightText() + "). 체중(kg)을 입력해 주세요.");
+        return pet.getWeightKg();
     }
 
     private static String photoUrl(Pet pet, int photoIndex) {
