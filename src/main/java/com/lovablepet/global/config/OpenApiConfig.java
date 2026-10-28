@@ -20,7 +20,7 @@ public class OpenApiConfig {
     private static final String DESCRIPTION = """
             유기동물 입양 매칭 + AR 서비스 백엔드 API
 
-            - **인증**: `/api/auth/**` 는 토큰 없이 호출한다. 그 외 API 는 `Authorization: Bearer {accessToken}` 헤더가 필요하다.
+            - **인증**: `/api/auth/**` 와 유기견 조회(`GET /api/pets/**`)는 토큰 없이 호출한다. 그 외 API 는 `Authorization: Bearer {accessToken}` 헤더가 필요하다.
               오른쪽 위 **Authorize** 에 로그인·회원가입 응답의 `accessToken` 을 넣으면 이후 요청에 자동으로 붙는다.
             - **토큰 만료**: 액세스 토큰(기본 30분)이 만료되면 `AUTH_401_TOKEN` 이 온다. `POST /api/auth/reissue` 로 재발급하고,
               이때 리프레시 토큰(기본 14일)도 새 값으로 바뀐다. 재발급까지 실패(`AUTH_401_REFRESH`)하면 다시 로그인한다.

@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -127,5 +128,25 @@ public class Pet {
         this.raw = item.rawJson();
         this.sourceUpdatedAt = item.updatedAt();
         this.syncedAt = syncedAt;
+    }
+
+    /** 공고에 이름이 없어 화면에 보여 줄 이름: "믹스견 · 경기도 화성시 · 5kg". 값이 없는 부분은 뺀다. */
+    public String displayName() {
+        List<String> parts = new ArrayList<>(3);
+        if (kindName != null) {
+            parts.add(kindName);
+        }
+        if (orgName != null) {
+            parts.add(orgName);
+        }
+        if (weightKg != null) {
+            parts.add(weightKg.stripTrailingZeros().toPlainString() + "kg");
+        }
+        return String.join(" · ", parts);
+    }
+
+    /** 입양 가능(보호중): 공공데이터 목록에 있고 공고 기간이 끝났다. 공고 기간 중(공고중)에는 원래 보호자가 찾아갈 수 있다. */
+    public boolean isAdoptable(LocalDate today) {
+        return listed && noticeEnd != null && noticeEnd.isBefore(today);
     }
 }

@@ -10,8 +10,8 @@ import com.lovablepet.domain.pet.repository.PetSyncRunRepository;
 import com.lovablepet.global.config.PublicAnimalProperties;
 import com.lovablepet.global.exception.BusinessException;
 import com.lovablepet.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +40,7 @@ import java.util.function.IntFunction;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class PetSyncService {
 
     static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -58,22 +59,6 @@ public class PetSyncService {
     private final Clock clock;
 
     private final AtomicBoolean running = new AtomicBoolean();
-
-    @Autowired
-    public PetSyncService(PublicAnimalClient client, PetSyncWriter writer, PetRepository petRepository,
-                          PetSyncRunRepository runRepository, PublicAnimalProperties properties) {
-        this(client, writer, petRepository, runRepository, properties, Clock.systemUTC());
-    }
-
-    PetSyncService(PublicAnimalClient client, PetSyncWriter writer, PetRepository petRepository,
-                   PetSyncRunRepository runRepository, PublicAnimalProperties properties, Clock clock) {
-        this.client = client;
-        this.writer = writer;
-        this.petRepository = petRepository;
-        this.runRepository = runRepository;
-        this.properties = properties;
-        this.clock = clock;
-    }
 
     @Scheduled(cron = "0 0 4 * * MON", zone = "Asia/Seoul")
     public void weeklySync() {

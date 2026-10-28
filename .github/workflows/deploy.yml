@@ -90,6 +90,11 @@ jobs:
           token=$(echo "$signup" | jq -r .success.data.accessToken)
           curl -sS localhost:8080/api/admin/ping -H "Authorization: Bearer $token" | grep -q '"COMMON_403"'
 
+          # 유기견 조회는 로그인 없이 되고, 목록·필터 쿼리가 PostgreSQL 에서 돈다 (스모크 DB 는 비어 있다)
+          curl -fsS 'localhost:8080/api/pets?region=%EA%B2%BD%EA%B8%B0%EB%8F%84&minWeight=1&sort=OLDEST' | grep -q '"resultType":"SUCCESS"'
+          curl -fsS localhost:8080/api/pets/filters | grep -q '"resultType":"SUCCESS"'
+          curl -sS localhost:8080/api/pets/999999 | grep -q '"PET_404"'
+
           # 자동 생성 보안 비밀번호가 기동 로그에 남지 않는지
           if docker logs smoke 2>&1 | grep -q "generated security password"; then
             echo "기동 로그에 자동 생성 비밀번호가 있다 (UserDetailsServiceAutoConfiguration)"; exit 1
