@@ -142,4 +142,10 @@ curl -fsS localhost:8080/actuator/health
 docker logs -f spring
 ```
 
+`.env`를 고친 뒤(예: 카카오 키 추가) 반영 (서버에서):
+
+```
+cd ~/lovablepet-spring && docker compose up -d
+```
+
 `DB_PASSWORD`는 DB를 처음 띄울 때만 적용됩니다. 나중에 바꾸려면 DB 안에서도 `ALTER USER`로 바꿔야 합니다.

@@ -129,6 +129,9 @@ jobs:
             echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
             export SPRING_IMAGE="ghcr.io/${REPO,,}:$SHA"
             docker compose pull
+            # 서버에서 직접 docker compose 를 실행하면 SPRING_IMAGE 가 없어 :latest 를 찾는다.
+            # GHCR 은 private 이라 로그인 없이 받을 수 없으므로 받은 이미지에 latest 태그를 로컬로 붙여 둔다
+            docker tag "$SPRING_IMAGE" "ghcr.io/${REPO,,}:latest"
             docker compose up -d --remove-orphans
             docker logout ghcr.io
             docker image prune -f
