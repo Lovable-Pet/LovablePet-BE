@@ -82,6 +82,14 @@ jobs:
           curl -sS -X POST localhost:8080/internal/pet-models/callback \
             -H 'Content-Type: application/json' -d '{}' | grep -q GENERATION_401_KEY
 
+          # 관리자 API: 토큰이 없으면 COMMON_401, 가입한 일반 회원(role USER)의 토큰이면 COMMON_403
+          curl -sS localhost:8080/api/admin/ping | grep -q '"COMMON_401"'
+          signup=$(curl -fsS -X POST localhost:8080/api/auth/signup -H 'Content-Type: application/json' \
+            -d '{"username":"smoke_user","email":"smoke@example.com","password":"password1234","nickname":"smoke"}')
+          [ "$(echo "$signup" | jq -r .success.data.role)" = USER ]
+          token=$(echo "$signup" | jq -r .success.data.accessToken)
+          curl -sS localhost:8080/api/admin/ping -H "Authorization: Bearer $token" | grep -q '"COMMON_403"'
+
           # 자동 생성 보안 비밀번호가 기동 로그에 남지 않는지
           if docker logs smoke 2>&1 | grep -q "generated security password"; then
             echo "기동 로그에 자동 생성 비밀번호가 있다 (UserDetailsServiceAutoConfiguration)"; exit 1

@@ -18,6 +18,8 @@ import java.util.Date;
 public class JwtProvider {
 
     private static final int REFRESH_TOKEN_BYTES = 32; // 256비트
+    private static final String ROLE_CLAIM = "role";
+    private static final String DEFAULT_ROLE = "USER";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final SecretKey key;
@@ -38,14 +40,15 @@ public class JwtProvider {
     }
 
     /**
-     * 유저 ID를 담은 엑세스 토큰(JWT) 발급
+     * 유저 ID와 역할(USER/ADMIN)을 담은 엑세스 토큰(JWT) 발급
      */
-    public String createAccessToken(Long memberId) {
+    public String createAccessToken(Long memberId, String role) {
         Date now = new Date();
         Date expiration = new Date(now.getTime() + accessTokenExpMillis);
 
         return Jwts.builder()
             .subject(String.valueOf(memberId)) // 토큰의 주인을 memberId로 설정
+            .claim(ROLE_CLAIM, role)
             .issuedAt(now)
             .expiration(expiration)
             .signWith(key)
@@ -53,16 +56,18 @@ public class JwtProvider {
     }
 
     /**
-     * 서명과 만료 시각이 검증된 access token에서 회원 ID를 읽는다.
+     * 서명과 만료 시각이 검증된 access token에서 회원 ID와 역할을 읽는다.
+     * 역할이 없는 토큰(역할 도입 전에 발급된 토큰)은 USER로 본다.
      */
-    public Long getMemberId(String accessToken) {
+    public AccessTokenClaims parseAccessToken(String accessToken) {
         Claims claims = Jwts.parser()
             .verifyWith(key)
             .build()
             .parseSignedClaims(accessToken)
             .getPayload();
 
-        return Long.valueOf(claims.getSubject());
+        String role = claims.get(ROLE_CLAIM, String.class);
+        return new AccessTokenClaims(Long.valueOf(claims.getSubject()), role != null ? role : DEFAULT_ROLE);
     }
 
     /**
@@ -80,5 +85,8 @@ public class JwtProvider {
      */
     public LocalDateTime getRefreshExpiration() {
         return LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpMillis));
+    }
+
+    public record AccessTokenClaims(Long memberId, String role) {
     }
 }

@@ -31,6 +31,11 @@ public class Member {
     @Column(nullable = false, length = 20)
     private MemberStatus status;
 
+    // 가입하면 항상 USER. ADMIN은 운영 DB에서 직접 지정한다 (V5 마이그레이션 참고)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private MemberRole role;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -45,6 +50,7 @@ public class Member {
         this.nickname = nickname;
         // 상태 값이 넘어오지 않으면 기본값으로 ACTIVE를 설정합니다.
         this.status = status != null ? status : MemberStatus.ACTIVE;
+        this.role = MemberRole.USER;
     }
 
     // ==========================================================
