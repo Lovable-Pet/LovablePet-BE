@@ -43,7 +43,7 @@ class PetModelCallbackServiceTest {
     void setUp() {
         PetPipelineProperties properties = new PetPipelineProperties(
                 "http://pipeline:8000", "test-key", "", tempDir.resolve("models").toString(),
-                Duration.ofSeconds(10), Duration.ofSeconds(90));
+                Duration.ofSeconds(10), Duration.ofSeconds(90), null, 30);
         petModelCallbackService = new PetModelCallbackService(petPipelineClient, properties);
     }
 

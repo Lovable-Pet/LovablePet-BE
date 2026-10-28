@@ -38,7 +38,7 @@ class PetModelCallbackControllerTest {
     @BeforeEach
     void setUp() {
         PetPipelineProperties properties = new PetPipelineProperties(
-                "http://pipeline:8000", API_KEY, "", "models", Duration.ofSeconds(10), Duration.ofSeconds(90));
+                "http://pipeline:8000", API_KEY, "", "models", Duration.ofSeconds(10), Duration.ofSeconds(90), null, 30);
         petModelCallbackController = new PetModelCallbackController(petModelCallbackService, properties);
     }
 
