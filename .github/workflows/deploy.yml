@@ -1,0 +1,136 @@
+# dev·main 으로의 PR 과 push: 이미지를 빌드하고 prod 프로필로 뜨는지(/actuator/health) 확인한다.
+# main push: GHCR 에 올리고 EC2 에서 새 이미지로 교체한다. (Gradle 테스트는 ci.yml)
+#
+# Secrets: SSH_HOST (Elastic IP), SSH_USER (ubuntu), SSH_KEY (공개키가 서버 ~/.ssh/authorized_keys 에 있는 개인키).
+# 비밀값은 서버 ~/lovablepet-spring/.env 에만 있다. 서버 1회 준비는 README 의 "배포" 참고.
+name: CD
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & Smoke test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: |
+          docker network create smoke
+          docker run -d --name smoke-db --network smoke \
+            -e POSTGRES_DB=lovablepet -e POSTGRES_USER=lovablepet -e POSTGRES_PASSWORD=smoke \
+            --health-cmd "pg_isready -U lovablepet -d lovablepet" --health-interval 2s \
+            pgvector/pgvector:pg16
+          timeout 60 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" smoke-db)" = healthy ]; do sleep 2; done'
+
+          # 운영 .env 와 같은 변수 이름에 가짜 값 (deploy/.env.example, deploy/docker-compose.yml)
+          docker run -d --name smoke --network smoke -p 8080:8080 \
+            -e DB_URL=jdbc:postgresql://smoke-db:5432/lovablepet -e DB_USERNAME=lovablepet -e DB_PASSWORD=smoke \
+            -e PET_PIPELINE_BASE_URL=http://pipeline:8000 -e PET_PIPELINE_API_KEY=smoke \
+            -e PET_PIPELINE_CALLBACK_URL=http://spring:8080/internal/pet-models/callback \
+            -e JWT_SECRET="$(openssl rand -base64 32)" -e TOKEN_HASH_SECRET=smoke \
+            -e ACCESS_TOKEN_EXPIRATION=1800000 -e REFRESH_TOKEN_EXPIRATION=1209600000 \
+            -e KAKAO_REST_API_KEY= -e KAKAO_CLIENT_SECRET= -e KAKAO_REDIRECT_URI= \
+            -e CORS_ALLOWED_ORIGINS=http://localhost:5173 \
+            "$IMAGE:${{ github.sha }}"
+          curl -fsS --retry 30 --retry-delay 2 --retry-all-errors localhost:8080/actuator/health
+
+          # 콜백 경로가 JWT 인증에 막히지 않고 컨트롤러의 키 검사까지 오는지 (Security 에서 막히면 COMMON_401)
+          curl -sS -X POST localhost:8080/internal/pet-models/callback \
+            -H 'Content-Type: application/json' -d '{}' | grep -q GENERATION_401_KEY
+          docker rm -f smoke smoke-db
+
+      - name: Smoke test logs
+        if: failure()
+        run: docker logs smoke || true
+
+      - name: Push to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+  deploy:
+    name: Deploy to EC2
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Copy compose file
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: deploy/docker-compose.yml
+          target: lovablepet-spring      # SSH 사용자 홈 기준 상대 경로
+          strip_components: 1
+
+      - name: Pull and restart
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: GH_TOKEN,GH_ACTOR,REPO,SHA
+          script: |
+            set -e
+            cd ~/lovablepet-spring
+            [ -f .env ] || { echo "~/lovablepet-spring/.env is missing (see README)"; exit 1; }
+            docker network create lovablepet 2>/dev/null || true
+
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+            export SPRING_IMAGE="ghcr.io/${REPO,,}:$SHA"
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker logout ghcr.io
+            docker image prune -f
+            curl -fsS --retry 30 --retry-delay 2 --retry-all-errors localhost:8080/actuator/health \
+              || { docker logs --tail 100 spring; exit 1; }
