@@ -60,4 +60,15 @@ public class PetModelWriter {
         }
         return true;
     }
+
+    /** 파이프라인에서 결과를 받을 수 없을 때 FAILED 로. 만드는 중이 아니면 false */
+    @Transactional
+    public boolean fail(Long id, String error, Instant now) {
+        PetModel model = petModelRepository.findById(id).orElse(null);
+        if (model == null || !model.isPending()) {
+            return false;
+        }
+        model.fail(error, now);
+        return true;
+    }
 }
