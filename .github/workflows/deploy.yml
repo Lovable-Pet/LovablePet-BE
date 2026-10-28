@@ -81,6 +81,10 @@ jobs:
           # 콜백 경로가 JWT 인증에 막히지 않고 컨트롤러의 키 검사까지 오는지 (Security 에서 막히면 COMMON_401)
           curl -sS -X POST localhost:8080/internal/pet-models/callback \
             -H 'Content-Type: application/json' -d '{}' | grep -q GENERATION_401_KEY
+          # 키가 맞으면 모르는 작업의 결과는 무시하고 200 (pet_model 조회가 PostgreSQL 에서 돈다)
+          curl -fsS -X POST localhost:8080/internal/pet-models/callback -H 'X-API-Key: smoke' \
+            -H 'Content-Type: application/json' -d '{"job_id":"smoke-unknown","pet_id":"0","status":"done"}' \
+            | grep -q '"resultType":"SUCCESS"'
 
           # 관리자 API: 토큰이 없으면 COMMON_401, 가입한 일반 회원(role USER)의 토큰이면 COMMON_403
           curl -sS localhost:8080/api/admin/ping | grep -q '"COMMON_401"'
