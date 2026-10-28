@@ -137,3 +137,7 @@ jobs:
             docker image prune -f
             curl -fsS --retry 30 --retry-delay 2 --retry-all-errors localhost:8080/actuator/health \
               || { docker logs --tail 100 spring; exit 1; }
+
+            # 배포마다 커밋 해시 태그 이미지가 하나씩 남는다(prune -f 는 태그 없는 이미지만 지움).
+            # 새 컨테이너가 정상으로 뜬 뒤, 컨테이너가 쓰지 않는 이 저장소 이미지만 지운다 (파이프라인·postgres 는 라벨이 달라 남는다)
+            docker image prune -af --filter "label=org.opencontainers.image.source=https://github.com/$REPO"
