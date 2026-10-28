@@ -88,3 +88,58 @@ hotfix/*  ──PR──▶  main (긴급 수정, dev에도 반영)
 
 커밋 메시지 권장 형식: `type(scope): 설명`
 (`feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci` 등)
+
+---
+
+## 배포 (AWS EC2 + GitHub Actions)
+
+Python 파이프라인(LovablePet-AI-AR)과 같은 EC2에 Docker로 올립니다.
+
+- `.github/workflows/deploy.yml`: `dev`·`main`으로의 PR과 push마다 이미지를 빌드하고 prod 프로필로 뜨는지(`/actuator/health`) 확인합니다.
+  `main`에 머지되면 이미지를 GHCR(`ghcr.io/lovable-pet/lovablepet-be`, 태그 sha·latest)에 올리고 EC2에서 새 이미지로 교체합니다.
+- 이미지는 Actions에서 빌드합니다. EC2는 메모리를 파이프라인과 나눠 쓰므로 서버에서 빌드하지 않습니다.
+
+서버 폴더 `~/lovablepet-spring/` (파이프라인의 `~/lovablepet-ai/`와 분리):
+
+| 경로 | 내용 |
+|---|---|
+| `docker-compose.yml` | 배포가 `deploy/docker-compose.yml`을 복사 |
+| `.env` | 비밀값. 서버에서만 만들고 커밋하지 않음 (변수 목록: `deploy/.env.example`) |
+| `data/postgres/` | DB 데이터 |
+| `data/storage/` | 업로드 파일 + `models/`(콜백으로 받은 GLB). 소유자 uid 10001 |
+
+| 컨테이너 | 내용 |
+|---|---|
+| `spring` | 8080 공개. 네트워크 `lovablepet`(파이프라인과 공유)·`db`. 메모리 상한 1.5 GB (힙은 그 70%) |
+| `lovablepet-postgres` | `pgvector/pgvector:pg16`. 내부 네트워크 `db`에만 붙고 포트를 열지 않음. 메모리 상한 1 GB |
+
+파이프라인 연동: Spring은 `http://pipeline:8000`을 부르고, 파이프라인은 `http://spring:8080/internal/pet-models/callback`으로 결과를 보냅니다.
+같은 docker 네트워크라 공개 주소가 필요 없습니다. `PET_PIPELINE_API_KEY`는 `~/lovablepet-ai/.env`의 `PIPELINE_API_KEY`와 같은 값이고,
+파이프라인이 없어도 Spring은 정상으로 뜹니다.
+
+서버 준비 (한 번):
+
+1. swap 2 GB (메모리가 넘칠 때 프로세스가 강제 종료되는 대신 느려지도록):
+   ```
+   sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+   echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf && sudo sysctl -p /etc/sysctl.d/99-swappiness.conf
+   ```
+2. 폴더와 `.env`:
+   ```
+   mkdir -p ~/lovablepet-spring/data/postgres
+   sudo install -d -o 10001 -g 10001 -m 750 ~/lovablepet-spring/data/storage
+   # deploy/.env.example 의 변수를 ~/lovablepet-spring/.env 에 채운다 (chmod 600)
+   # 랜덤 값은 openssl rand -hex 32, JWT_SECRET 만 openssl rand -base64 32
+   ```
+3. Actions용 SSH 키를 따로 만들어 공개키를 서버 `~/.ssh/authorized_keys`에 추가하고, 저장소 Actions secrets에 등록:
+   `SSH_HOST`(Elastic IP), `SSH_USER`(`ubuntu`), `SSH_KEY`(개인키 전체).
+
+확인과 로그 (서버에서):
+
+```
+curl -fsS localhost:8080/actuator/health
+docker logs -f spring
+```
+
+`DB_PASSWORD`는 DB를 처음 띄울 때만 적용됩니다. 나중에 바꾸려면 DB 안에서도 `ALTER USER`로 바꿔야 합니다.

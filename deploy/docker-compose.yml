@@ -1,0 +1,65 @@
+# EC2 서버의 ~/lovablepet-spring/ 에서 .env, data/ 옆에 둔다.
+# 배포 워크플로(.github/workflows/deploy.yml)가 이 파일을 복사하고 docker compose up -d 를 실행한다.
+#
+# - spring: 외부 네트워크 lovablepet 으로 파이프라인 컨테이너(http://pipeline:8000)와 통신하고, 8080 만 외부에 연다.
+# - postgres: 내부 네트워크 db 에만 붙고 포트를 열지 않는다.
+# - 메모리: 8 GB 를 파이프라인(작업 중 최고 약 3.1 GB)과 나눠 쓴다. spring 1.5 GB(힙은 그 70%), postgres 1 GB.
+name: lovablepet-spring
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16           # V1 마이그레이션이 vector 확장을 쓴다
+    container_name: lovablepet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}     # data/postgres 가 비어 있을 때(처음)만 적용된다
+      TZ: UTC
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 1g
+    shm_size: 128mb
+    logging: *logging
+    networks:
+      - db
+
+  spring:
+    image: ${SPRING_IMAGE:-ghcr.io/lovable-pet/lovablepet-be:latest}
+    container_name: spring
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      PET_PIPELINE_BASE_URL: http://pipeline:8000
+      PET_PIPELINE_CALLBACK_URL: http://spring:8080/internal/pet-models/callback   # 같은 docker 네트워크라 공개 주소가 필요 없다
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError
+    volumes:
+      - ./data/storage:/data/storage        # 업로드 파일 + models/(GLB). 폴더 소유자는 uid 10001 (Dockerfile)
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 1536m
+    logging: *logging
+    networks:
+      - lovablepet
+      - db
+
+networks:
+  lovablepet:
+    external: true
+  db:
+    internal: true
