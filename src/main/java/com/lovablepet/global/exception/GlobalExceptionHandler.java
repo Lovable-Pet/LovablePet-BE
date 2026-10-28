@@ -74,7 +74,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({MissingServletRequestParameterException.class, MissingServletRequestPartException.class})
     public ResponseEntity<ApiResponse<Void>> handleMissingParameter(Exception e) {
-        return toResponse(ErrorCode.MISSING_PARAMETER, ErrorResponse.of(ErrorCode.MISSING_PARAMETER, e.getMessage()));
+        // 스프링 기본 메시지(영어) 대신, 누락된 파라미터 이름을 붙인 한국어 메시지로 응답한다.
+        // 예) "필수 요청 파라미터가 누락되었습니다. (username)"
+        String name = null;
+        if (e instanceof MissingServletRequestParameterException ex) {
+            name = ex.getParameterName();
+        } else if (e instanceof MissingServletRequestPartException ex) {
+            name = ex.getRequestPartName();
+        }
+        String message = (name == null)
+                ? ErrorCode.MISSING_PARAMETER.getMessage()
+                : "%s (%s)".formatted(ErrorCode.MISSING_PARAMETER.getMessage(), name);
+        return toResponse(ErrorCode.MISSING_PARAMETER, ErrorResponse.of(ErrorCode.MISSING_PARAMETER, message));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

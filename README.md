@@ -45,20 +45,33 @@ com.lovablepet
 
 ## 공통 응답 포맷
 
+모든 API는 아래 형식으로 응답합니다. 값이 없는 필드도 `null`로 항상 포함합니다.
+
 ```jsonc
 // 성공
-{ "success": true, "data": { ... } }
+{
+  "resultType": "SUCCESS",
+  "success": { "data": { ... } },   // 반환할 데이터가 없으면 { "data": null }
+  "error": null,
+  "meta": { "timestamp": "2026-06-30T22:10:00", "path": "/api/auth/login" }
+}
 
 // 실패
 {
-  "success": false,
+  "resultType": "FAIL",
+  "success": null,
   "error": {
     "code": "COMMON_400",
     "message": "잘못된 입력값입니다.",
-    "fieldErrors": [ { "field": "name", "rejectedValue": "", "reason": "공백일 수 없습니다" } ]
-  }
+    // 입력값 검증 실패일 때만 항목별 오류 목록, 그 외에는 null
+    "details": [ { "field": "name", "rejectedValue": "", "reason": "공백일 수 없습니다" } ]
+  },
+  "meta": { "timestamp": "2026-06-30T22:10:00", "path": "/api/pets" }
 }
 ```
+
+- `meta.timestamp`는 항상 한국 시간(KST), `meta.path`는 요청 경로(쿼리스트링 제외)입니다.
+- 컨트롤러는 `ApiResponse.ok(data)`만 반환하면 됩니다. `meta`는 `ApiResponseMetaAdvice`가 자동으로 채웁니다.
 
 도메인 예외는 `BusinessException`을 상속하고, 에러 코드는 `ErrorCode` enum에 추가합니다.
 
