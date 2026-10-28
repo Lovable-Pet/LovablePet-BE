@@ -135,6 +135,9 @@ Python 파이프라인(LovablePet-AI-AR)과 같은 EC2에 Docker로 올립니다
 3. Actions용 SSH 키를 따로 만들어 공개키를 서버 `~/.ssh/authorized_keys`에 추가하고, 저장소 Actions secrets에 등록:
    `SSH_HOST`(Elastic IP), `SSH_USER`(`ubuntu`), `SSH_KEY`(개인키 전체).
 
+API 문서(Swagger UI): `http://<Elastic IP>:8080/swagger-ui.html`
+(운영에서는 `deploy/docker-compose.yml`의 `SWAGGER_ENABLED`로 켭니다. 로그인·회원가입 응답의 `accessToken`을 오른쪽 위 **Authorize**에 넣으면 인증이 필요한 API도 호출해 볼 수 있습니다)
+
 확인과 로그 (서버에서):
 
 ```

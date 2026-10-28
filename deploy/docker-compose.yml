@@ -45,6 +45,7 @@ services:
       PET_PIPELINE_BASE_URL: http://pipeline:8000
       PET_PIPELINE_CALLBACK_URL: http://spring:8080/internal/pet-models/callback   # 같은 docker 네트워크라 공개 주소가 필요 없다
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError
+      SWAGGER_ENABLED: "true"                # API 문서 /swagger-ui.html 공개 (끄려면 이 줄을 지운다)
     volumes:
       - ./data/storage:/data/storage        # 업로드 파일 + models/(GLB). 폴더 소유자는 uid 10001 (Dockerfile)
     ports:
