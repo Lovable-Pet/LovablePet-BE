@@ -33,13 +33,14 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
-# Python 3D 생성(AI) 서버 연동
-petgen:
-  base-url: ${PETGEN_BASE_URL:http://localhost:8000}
-  token: ${PETGEN_TOKEN:local-dev-token}
-  callback-url: ${PETGEN_CALLBACK_URL:http://localhost:8080/api/generation/webhook}
-  connect-timeout: ${PETGEN_CONNECT_TIMEOUT:5s}
-  read-timeout: ${PETGEN_READ_TIMEOUT:30s}
+# Python 3D 생성(AI) 파이프라인 연동 (계약: LovablePet-AI-AR 저장소 docs/API.md)
+pet-pipeline:
+  base-url: ${PET_PIPELINE_BASE_URL:http://localhost:8000}
+  api-key: ${PET_PIPELINE_API_KEY:local-dev-key}
+  callback-url: ${PET_PIPELINE_CALLBACK_URL:http://localhost:8080/internal/pet-models/callback}
+  model-dir: ${PET_PIPELINE_MODEL_DIR:./storage/models}   # 콜백으로 받은 GLB 를 저장하는 폴더
+  connect-timeout: ${PET_PIPELINE_CONNECT_TIMEOUT:10s}
+  read-timeout: ${PET_PIPELINE_READ_TIMEOUT:90s}
 
 # 업로드 파일 저장 루트 (로컬 구현용, 추후 S3로 교체 예정)
 storage:
