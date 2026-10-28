@@ -49,6 +49,7 @@ public class PetModelGenerationService {
     private final PetModelWriter writer;
     private final PetPipelineClient pipelineClient;
     private final PetPhotoSource photoSource;
+    private final PetModelFiles files;
     private final PetPipelineProperties properties;
     private final Clock clock;
 
@@ -92,18 +93,18 @@ public class PetModelGenerationService {
             writer.delete(reserved.getId());
             throw e;
         }
-        return PetModelResponse.from(writer.attachJob(reserved.getId(), job.jobId()));
+        return toResponse(writer.attachJob(reserved.getId(), job.jobId()));
     }
 
     public Optional<PetModelResponse> latest(Long petId) {
-        return petModelRepository.findFirstByPetIdOrderByCreatedAtDesc(petId).map(PetModelResponse::from);
+        return petModelRepository.findFirstByPetIdOrderByCreatedAtDesc(petId).map(this::toResponse);
     }
 
     public PetModelListResponse list(PetModelStatus status) {
         List<PetModel> models = status == null
                 ? petModelRepository.findTop100ByOrderByCreatedAtDesc()
                 : petModelRepository.findTop100ByStatusOrderByCreatedAtDesc(status);
-        return new PetModelListResponse(models.stream().map(PetModelResponse::from).toList(), todayCount(),
+        return new PetModelListResponse(models.stream().map(this::toResponse).toList(), todayCount(),
                 properties.dailyLimit());
     }
 
@@ -118,6 +119,10 @@ public class PetModelGenerationService {
                 nullToEmpty(pet.getSex()),
                 "Y".equals(pet.getNeutered()), // 파이프라인은 true/false 만 받는다: Y → true, N·U(미상) → false
                 nullToEmpty(pet.getAgeText()));
+    }
+
+    private PetModelResponse toResponse(PetModel model) {
+        return PetModelResponse.from(model, files.publicUrl(model.getGlbPath()));
     }
 
     private long todayCount() {

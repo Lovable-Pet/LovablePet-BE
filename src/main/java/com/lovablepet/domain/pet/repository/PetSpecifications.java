@@ -1,6 +1,10 @@
 package com.lovablepet.domain.pet.repository;
 
+import com.lovablepet.domain.generation.entity.PetModel;
+import com.lovablepet.domain.generation.entity.PetModelStatus;
 import com.lovablepet.domain.pet.entity.Pet;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
@@ -38,6 +42,18 @@ public final class PetSpecifications {
 
     public static Specification<Pet> weightAtMost(BigDecimal kg) {
         return (root, query, cb) -> cb.lessThanOrEqualTo(root.get("weightKg"), kg);
+    }
+
+    /** 완성된 AR 모델이 있는지 (pet_model.status = DONE) */
+    public static Specification<Pet> hasModel(boolean value) {
+        return (root, query, cb) -> {
+            Subquery<Long> done = query.subquery(Long.class);
+            Root<PetModel> model = done.from(PetModel.class);
+            done.select(model.get("id")).where(
+                    cb.equal(model.get("petId"), root.get("id")),
+                    cb.equal(model.get("status"), PetModelStatus.DONE));
+            return value ? cb.exists(done) : cb.not(cb.exists(done));
+        };
     }
 
     // 사용자가 넣은 %, _ 를 와일드카드가 아닌 글자로 찾도록 이스케이프한다
