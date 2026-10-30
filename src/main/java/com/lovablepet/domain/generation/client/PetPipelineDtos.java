@@ -26,22 +26,33 @@ public final class PetPipelineDtos {
             @JsonProperty("age_text") String ageText) {    // 예: "2022(년생)", "2026(60일미만)(년생)"
     }
 
+    // 응답의 숫자 값은 상황에 따라 null 로 온다(사진이 거부되면 size·shape·photo 가 통째로 null 등).
+    // Jackson 3 은 기본으로 null 을 원시 타입에 넣지 못해 400 이 나므로 래퍼 타입으로 받는다.
+
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Fit(String level, String label, int score, List<String> reasons, List<String> notes,
+    public record Fit(String level, String label, Integer score, List<String> reasons, List<String> notes,
                       String template,                                // 만들 모델: jindo, jindo_puppy, maltese, ...
                       @JsonProperty("picked_by") String pickedBy,     // "vision"(사진과 회색 모델 비교) 또는 "looks"
                       String match,                                   // close | rough | poor ("vision"일 때)
                       List<String> differences,                       // 모델과 다른 부위: ears, muzzle, ...
-                      String looks) {                                 // DINOv2 생김새. "none"이면 맞는 템플릿 없음
+                      String looks,                                   // DINOv2 생김새. "none"이면 맞는 템플릿 없음
+                      // 사진 거부 사유 코드: person_covers, several_animals, text_on_animal, clothing, object_covers, not_a_dog.
+                      // 통과하면 []. 사진 판정이 없던 이전 버전 파이프라인은 이 필드를 보내지 않는다(null)
+                      @JsonProperty("photo_rejected") List<String> photoRejected) {
         public boolean isPoor() {
             return "poor".equals(level);
+        }
+
+        /** 사진이 못 쓰는 사진이면 true. 이때는 force 로도 만들 수 없다(작업도 photo_rejected 로 끝난다) */
+        public boolean isPhotoRejected() {
+            return photoRejected != null && !photoRejected.isEmpty();
         }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Size(@JsonProperty("weight_kg") double weightKg,
-                       @JsonProperty("withers_m") double withersM,
-                       double scale,
+    public record Size(@JsonProperty("weight_kg") Double weightKg,
+                       @JsonProperty("withers_m") Double withersM,    // 체고(m). GLB 에 이미 적용돼 있어 표시용
+                       Double scale,
                        String rule) {                                 // "weight" 또는 "shape"
     }
 
@@ -52,9 +63,9 @@ public final class PetPipelineDtos {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Behavior(@JsonProperty("playback_rate") double playbackRate,
+    public record Behavior(@JsonProperty("playback_rate") Double playbackRate,
                            @JsonProperty("tap_animation") String tapAnimation,
-                           @JsonProperty("tap_is_retreat") boolean tapIsRetreat) {
+                           @JsonProperty("tap_is_retreat") Boolean tapIsRetreat) {
     }
 
     /** GET /v1/jobs/{id}, POST /v1/jobs 의 202 응답, 콜백 본문이 모두 이 형식이다. */
@@ -72,7 +83,7 @@ public final class PetPipelineDtos {
                       String error,
                       @JsonProperty("cost_usd") Double costUsd) {
         public boolean isFinished() {
-            return switch (status) {
+            return status != null && switch (status) {
                 case "done", "failed", "photo_rejected", "unsuitable" -> true;
                 default -> false;
             };
@@ -86,9 +97,9 @@ public final class PetPipelineDtos {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record PhotoQuality(String level,
                                Map<String, String> levels,                  // size / sharpness / exposure -> level
-                               @JsonProperty("short_side_px") int shortSidePx,
-                               double sharpness,
-                               @JsonProperty("clipped_share") double clippedShare) {
+                               @JsonProperty("short_side_px") Integer shortSidePx,
+                               Double sharpness,
+                               @JsonProperty("clipped_share") Double clippedShare) {
         public boolean isPoor() {
             return "poor".equals(level);
         }

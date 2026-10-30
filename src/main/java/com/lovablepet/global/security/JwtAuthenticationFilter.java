@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -16,7 +17,7 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Authorization: Bearer {accessToken} 헤더를 검증해 SecurityContext에 회원 ID를 넣는다.
+ * Authorization: Bearer {accessToken} 헤더를 검증해 SecurityContext에 회원 ID와 역할(ROLE_USER/ROLE_ADMIN)을 넣는다.
  * <p>
  * 스프링 빈(@Component)으로 등록하지 않고 SecurityConfig에서 직접 생성한다.
  * 빈으로 등록하면 Spring Boot가 일반 서블릿 필터로도 한 번 더 등록하기 때문이다.
@@ -52,18 +53,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        Long memberId;
+        JwtProvider.AccessTokenClaims claims;
         try {
-            memberId = jwtProvider.getMemberId(accessToken);
+            claims = jwtProvider.parseAccessToken(accessToken);
         } catch (JwtException | IllegalArgumentException e) {
             // 만료/위조 토큰: 클라이언트가 재발급을 시도할 수 있도록 AUTH_401_TOKEN 코드로 응답
             SecurityContextHolder.clearContext();
-            SecurityErrorResponseWriter.write(response, ErrorCode.AUTH_INVALID_TOKEN);
+            SecurityErrorResponseWriter.write(request, response, ErrorCode.AUTH_INVALID_TOKEN);
             return;
         }
 
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(memberId, null, List.of());
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                claims.memberId(), null, List.of(new SimpleGrantedAuthority("ROLE_" + claims.role())));
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authentication);
         filterChain.doFilter(request, response);

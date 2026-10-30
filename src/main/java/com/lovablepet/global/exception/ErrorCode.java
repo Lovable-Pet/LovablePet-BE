@@ -35,9 +35,21 @@ public enum ErrorCode {
     AUTH_DUPLICATE_USERNAME(HttpStatus.CONFLICT, "AUTH_409_USERNAME", "이미 사용 중인 아이디입니다."),
     AUTH_DUPLICATE_EMAIL(HttpStatus.CONFLICT, "AUTH_409_EMAIL", "이미 가입된 이메일입니다."),
 
+    // Pet (공공데이터 유기견)
+    PET_SYNC_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "PET_503_SYNC_KEY", "공공데이터 인증키가 설정되지 않아 동기화할 수 없습니다."),
+    PET_SYNC_RUNNING(HttpStatus.CONFLICT, "PET_409_SYNC", "동물 동기화가 이미 진행 중입니다."),
+    PET_NOT_FOUND(HttpStatus.NOT_FOUND, "PET_404", "동물을 찾을 수 없습니다."),
+
     // Generation (3D 생성 파이프라인)
     GENERATION_INVALID_API_KEY(HttpStatus.UNAUTHORIZED, "GENERATION_401_KEY", "파이프라인 API 키가 올바르지 않습니다."),
     GENERATION_INVALID_PET_ID(HttpStatus.BAD_REQUEST, "GENERATION_400_PET_ID", "모델 파일 이름으로 쓸 수 없는 관리번호입니다."),
+    GENERATION_MODEL_EXISTS(HttpStatus.CONFLICT, "GENERATION_409_EXISTS", "이미 AR 모델이 있는 동물입니다. 한 번 만든 모델을 계속 씁니다."),
+    GENERATION_IN_PROGRESS(HttpStatus.CONFLICT, "GENERATION_409_RUNNING", "이 동물의 AR 모델을 만드는 중입니다."),
+    GENERATION_WEIGHT_UNKNOWN(HttpStatus.BAD_REQUEST, "GENERATION_400_WEIGHT", "공고 체중을 알 수 없어 실제 크기로 만들 수 없습니다."),
+    GENERATION_INVALID_PHOTO(HttpStatus.BAD_REQUEST, "GENERATION_400_PHOTO", "사진 번호가 올바르지 않습니다."),
+    GENERATION_PHOTO_REJECTED(HttpStatus.BAD_REQUEST, "GENERATION_400_PHOTO_REJECTED", "적합도 확인에서 거부된 사진입니다. 다른 사진을 골라 주세요."),
+    GENERATION_PHOTO_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "GENERATION_502_PHOTO", "사진을 받을 수 없습니다. 다른 사진을 골라 주세요."),
+    GENERATION_DAILY_LIMIT(HttpStatus.TOO_MANY_REQUESTS, "GENERATION_429_LIMIT", "오늘 AR 생성 횟수를 다 썼습니다. 내일 다시 시도해 주세요."),
 
     // External (Python AI 서버 등)
     EXTERNAL_API_ERROR(HttpStatus.BAD_GATEWAY, "EXTERNAL_502", "외부 서버 호출 중 오류가 발생했습니다."),

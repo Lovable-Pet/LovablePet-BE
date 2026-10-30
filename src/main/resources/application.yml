@@ -40,7 +40,18 @@ pet-pipeline:
   callback-url: ${PET_PIPELINE_CALLBACK_URL:http://localhost:8080/internal/pet-models/callback}
   model-dir: ${PET_PIPELINE_MODEL_DIR:./storage/models}   # 콜백으로 받은 GLB 를 저장하는 폴더
   connect-timeout: ${PET_PIPELINE_CONNECT_TIMEOUT:10s}
-  read-timeout: ${PET_PIPELINE_READ_TIMEOUT:90s}
+  read-timeout: ${PET_PIPELINE_READ_TIMEOUT:90s}       # 배포 직후 첫 적합도 확인은 30초 넘게 걸린다. 줄이지 말 것
+  scripted: ${PET_PIPELINE_SCRIPTED:}                  # 비용 없는 대본 실행(예: black_shiba). 연동 시험용, 운영에서는 비워 둔다
+  daily-limit: ${PET_PIPELINE_DAILY_LIMIT:30}          # 하루(한국 날짜) AR 생성 시도 상한
+  model-base-url: ${PET_PIPELINE_MODEL_BASE_URL:/models}  # 앱에 내려주는 GLB 주소 앞부분 (S3·CloudFront 로 옮기면 그 주소)
+
+# 공공데이터포털 구조동물 조회 서비스 (농림축산검역본부) — 유기견을 매주 월요일 pet 테이블로 동기화한다
+public-animal:
+  base-url: https://apis.data.go.kr/1543061/abandonmentPublicService_v2
+  service-key: ${DATA_GO_KR_SERVICE_KEY:}   # 비어 있으면 동기화를 건너뛴다 (로컬·CI)
+  page-size: 1000                            # API 최대값
+  connect-timeout: 10s
+  read-timeout: 60s
 
 # 업로드 파일 저장 루트 (로컬 구현용, 추후 S3로 교체 예정)
 storage:

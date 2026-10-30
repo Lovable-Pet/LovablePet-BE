@@ -10,6 +10,7 @@ import com.lovablepet.domain.auth.repository.LocalCredentialRepository;
 import com.lovablepet.domain.auth.repository.OAuthAccountRepository;
 import com.lovablepet.domain.auth.repository.RefreshTokenRepository;
 import com.lovablepet.domain.member.entity.Member;
+import com.lovablepet.domain.member.entity.MemberRole;
 import com.lovablepet.domain.member.entity.MemberStatus;
 import com.lovablepet.domain.member.repository.MemberRepository;
 import com.lovablepet.global.exception.ErrorCode;
@@ -66,7 +67,7 @@ public class AuthService {
         String encodedPassword = passwordEncoder.encode(rawPassword);
         localCredentialRepository.save(LocalCredential.create(member.getId(), normalizedUsername, normalizedEmail, encodedPassword));
 
-        return issueTokens(member.getId());
+        return issueTokens(member);
     }
 
     /**
@@ -111,7 +112,7 @@ public class AuthService {
         memberRepository.save(member);
         oauthAccountRepository.save(OAuthAccount.create(member.getId(), provider, providerSubject));
 
-        return issueTokens(member.getId());
+        return issueTokens(member);
     }
 
     @Transactional
@@ -127,7 +128,9 @@ public class AuthService {
             throw new AuthException(ErrorCode.AUTH_INVALID_REFRESH_TOKEN);
         }
 
-        if (!isActiveMember(refreshToken.getMemberId())) {
+        // 역할은 DB에서 다시 읽는다 → 관리자 지정·해제가 재발급 시점에 토큰에 반영된다
+        Optional<Member> member = findActiveMember(refreshToken.getMemberId());
+        if (member.isEmpty()) {
             refreshTokenRepository.delete(refreshToken);
             throw new AuthException(ErrorCode.AUTH_INACTIVE_MEMBER);
         }
@@ -137,9 +140,10 @@ public class AuthService {
         String newHashedToken = refreshTokenHashService.hash(newRawRefreshToken);
 
         refreshToken.updateToken(newHashedToken, jwtProvider.getRefreshExpiration());
-        String newAccessToken = jwtProvider.createAccessToken(refreshToken.getMemberId());
+        MemberRole role = member.get().getRole();
+        String newAccessToken = jwtProvider.createAccessToken(refreshToken.getMemberId(), role.name());
 
-        return new AuthTokenResponse(newAccessToken, newRawRefreshToken);
+        return new AuthTokenResponse(newAccessToken, newRawRefreshToken, role);
     }
 
     @Transactional
@@ -149,15 +153,15 @@ public class AuthService {
     }
 
     private AuthTokenResponse issueTokensForActiveMember(Long memberId) {
-        if (!isActiveMember(memberId)) {
-            throw new AuthException(ErrorCode.AUTH_INACTIVE_MEMBER);
-        }
-        return issueTokens(memberId);
+        Member member = findActiveMember(memberId)
+            .orElseThrow(() -> new AuthException(ErrorCode.AUTH_INACTIVE_MEMBER));
+        return issueTokens(member);
     }
 
     // 인증 방식과 무관하게 재사용하는 내부 토큰 발급 로직
-    private AuthTokenResponse issueTokens(Long memberId) {
-        String accessToken = jwtProvider.createAccessToken(memberId);
+    private AuthTokenResponse issueTokens(Member member) {
+        Long memberId = member.getId();
+        String accessToken = jwtProvider.createAccessToken(memberId, member.getRole().name());
         String rawRefreshToken = jwtProvider.createRefreshToken();
 
         // DB 저장 시에는 HMAC-SHA-256 해시값만 저장
@@ -169,11 +173,11 @@ public class AuthService {
         refreshTokenRepository.save(refreshTokenEntity);
 
         // 클라이언트에게는 평문 반환
-        return new AuthTokenResponse(accessToken, rawRefreshToken);
+        return new AuthTokenResponse(accessToken, rawRefreshToken, member.getRole());
     }
 
-    private boolean isActiveMember(Long memberId) {
-        return memberRepository.existsByIdAndStatus(memberId, MemberStatus.ACTIVE);
+    private Optional<Member> findActiveMember(Long memberId) {
+        return memberRepository.findByIdAndStatus(memberId, MemberStatus.ACTIVE);
     }
 
     private String dummyPasswordHash() {

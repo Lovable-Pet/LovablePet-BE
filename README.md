@@ -45,20 +45,33 @@ com.lovablepet
 
 ## 공통 응답 포맷
 
+모든 API는 아래 형식으로 응답합니다. 값이 없는 필드도 `null`로 항상 포함합니다.
+
 ```jsonc
 // 성공
-{ "success": true, "data": { ... } }
+{
+  "resultType": "SUCCESS",
+  "success": { "data": { ... } },   // 반환할 데이터가 없으면 { "data": null }
+  "error": null,
+  "meta": { "timestamp": "2026-06-30T22:10:00", "path": "/api/auth/login" }
+}
 
 // 실패
 {
-  "success": false,
+  "resultType": "FAIL",
+  "success": null,
   "error": {
     "code": "COMMON_400",
     "message": "잘못된 입력값입니다.",
-    "fieldErrors": [ { "field": "name", "rejectedValue": "", "reason": "공백일 수 없습니다" } ]
-  }
+    // 입력값 검증 실패일 때만 항목별 오류 목록, 그 외에는 null
+    "details": [ { "field": "name", "rejectedValue": "", "reason": "공백일 수 없습니다" } ]
+  },
+  "meta": { "timestamp": "2026-06-30T22:10:00", "path": "/api/pets" }
 }
 ```
+
+- `meta.timestamp`는 항상 한국 시간(KST), `meta.path`는 요청 경로(쿼리스트링 제외)입니다.
+- 컨트롤러는 `ApiResponse.ok(data)`만 반환하면 됩니다. `meta`는 `ApiResponseMetaAdvice`가 자동으로 채웁니다.
 
 도메인 예외는 `BusinessException`을 상속하고, 에러 코드는 `ErrorCode` enum에 추가합니다.
 
@@ -94,6 +107,7 @@ hotfix/*  ──PR──▶  main (긴급 수정, dev에도 반영)
 ## 배포 (AWS EC2 + GitHub Actions)
 
 Python 파이프라인(LovablePet-AI-AR)과 같은 EC2에 Docker로 올립니다.
+API 주소는 **https://api.lovablepet.tech** 입니다. (프론트: `lovablepet.tech` / `www.lovablepet.tech`)
 
 - `.github/workflows/deploy.yml`: `dev`·`main`으로의 PR과 push마다 이미지를 빌드하고 prod 프로필로 뜨는지(`/actuator/health`) 확인합니다.
   `main`에 머지되면 이미지를 GHCR(`ghcr.io/lovable-pet/lovablepet-be`, 태그 sha·latest)에 올리고 EC2에서 새 이미지로 교체합니다.
@@ -104,13 +118,16 @@ Python 파이프라인(LovablePet-AI-AR)과 같은 EC2에 Docker로 올립니다
 | 경로 | 내용 |
 |---|---|
 | `docker-compose.yml` | 배포가 `deploy/docker-compose.yml`을 복사 |
+| `Caddyfile` | 배포가 `deploy/Caddyfile`을 복사. `api.lovablepet.tech` → `spring:8080` |
+| `data/caddy/` | Let's Encrypt 인증서. 지우면 재발급하는데 발급 횟수 제한이 있으니 건드리지 않음 |
 | `.env` | 비밀값. 서버에서만 만들고 커밋하지 않음 (변수 목록: `deploy/.env.example`) |
 | `data/postgres/` | DB 데이터 |
 | `data/storage/` | 업로드 파일 + `models/`(콜백으로 받은 GLB). 소유자 uid 10001 |
 
 | 컨테이너 | 내용 |
 |---|---|
-| `spring` | 8080 공개. 네트워크 `lovablepet`(파이프라인과 공유)·`db`. 메모리 상한 1.5 GB (힙은 그 70%) |
+| `caddy` | 80·443 공개. HTTPS 종단(인증서 자동 발급·갱신) 후 `spring:8080`으로 전달. 네트워크 `lovablepet` |
+| `spring` | 8080은 서버 안(127.0.0.1)에서만 열림(배포 헬스체크용). 네트워크 `lovablepet`(파이프라인과 공유)·`db`. 메모리 상한 1.5 GB (힙은 그 70%) |
 | `lovablepet-postgres` | `pgvector/pgvector:pg16`. 내부 네트워크 `db`에만 붙고 포트를 열지 않음. 메모리 상한 1 GB |
 
 파이프라인 연동: Spring은 `http://pipeline:8000`을 부르고, 파이프라인은 `http://spring:8080/internal/pet-models/callback`으로 결과를 보냅니다.
@@ -134,16 +151,27 @@ Python 파이프라인(LovablePet-AI-AR)과 같은 EC2에 Docker로 올립니다
    ```
 3. Actions용 SSH 키를 따로 만들어 공개키를 서버 `~/.ssh/authorized_keys`에 추가하고, 저장소 Actions secrets에 등록:
    `SSH_HOST`(Elastic IP), `SSH_USER`(`ubuntu`), `SSH_KEY`(개인키 전체).
+4. 도메인(`lovablepet.tech`)과 HTTPS:
+   - DNS에 A 레코드 `api` → EC2 Elastic IP 를 추가합니다. (프론트용 `@`, `www`는 프론트 호스팅 안내대로 따로 연결)
+   - EC2 보안 그룹 인바운드: 22(내 IP), 80, 443만 엽니다. 8080은 열지 않습니다.
+   - 인증서는 첫 배포 때 Caddy가 Let's Encrypt에서 자동으로 받습니다. DNS가 먼저 Elastic IP를 가리키고 있어야 합니다.
+     (`dig +short api.lovablepet.tech` 로 확인)
+   - `.env`의 `CORS_ALLOWED_ORIGINS`에 프론트 주소(`https://lovablepet.tech,https://www.lovablepet.tech`)를,
+     `KAKAO_REDIRECT_URI`에 `https://api.lovablepet.tech/...` 형태의 주소를 넣고, 카카오 개발자 콘솔에도 같은 Redirect URI와 사이트 도메인을 등록합니다.
 
-API 문서(Swagger UI): `http://<Elastic IP>:8080/swagger-ui.html`
+API 문서(Swagger UI): `https://api.lovablepet.tech/swagger-ui.html`
 (운영에서는 `deploy/docker-compose.yml`의 `SWAGGER_ENABLED`로 켭니다. 로그인·회원가입 응답의 `accessToken`을 오른쪽 위 **Authorize**에 넣으면 인증이 필요한 API도 호출해 볼 수 있습니다)
 
 확인과 로그 (서버에서):
 
 ```
-curl -fsS localhost:8080/actuator/health
+curl -fsS localhost:8080/actuator/health                # spring 직접
+curl -fsS https://api.lovablepet.tech/actuator/health   # 도메인 경유
 docker logs -f spring
+docker logs -f caddy                                    # 인증서 발급 실패 등
 ```
+
+`Caddyfile`을 고친 뒤 반영 (서버에서): `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`
 
 `.env`를 고친 뒤(예: 카카오 키 추가) 반영 (서버에서):
 

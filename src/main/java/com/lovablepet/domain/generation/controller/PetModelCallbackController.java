@@ -2,7 +2,7 @@ package com.lovablepet.domain.generation.controller;
 
 import com.lovablepet.domain.generation.client.PetPipelineDtos.Job;
 import com.lovablepet.domain.generation.exception.GenerationException;
-import com.lovablepet.domain.generation.service.PetModelCallbackService;
+import com.lovablepet.domain.generation.service.PetModelResultService;
 import com.lovablepet.global.config.PetPipelineProperties;
 import com.lovablepet.global.exception.ErrorCode;
 import com.lovablepet.global.response.ApiResponse;
@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
@@ -29,11 +28,11 @@ public class PetModelCallbackController {
 
     private static final String API_KEY_HEADER = "X-API-Key";
 
-    private final PetModelCallbackService petModelCallbackService;
+    private final PetModelResultService petModelResultService;
     private final byte[] apiKey;
 
-    public PetModelCallbackController(PetModelCallbackService petModelCallbackService, PetPipelineProperties properties) {
-        this.petModelCallbackService = petModelCallbackService;
+    public PetModelCallbackController(PetModelResultService petModelResultService, PetPipelineProperties properties) {
+        this.petModelResultService = petModelResultService;
         this.apiKey = properties.apiKey().getBytes(StandardCharsets.UTF_8);
     }
 
@@ -41,12 +40,12 @@ public class PetModelCallbackController {
     public ApiResponse<Void> onJobFinished(
             @RequestHeader(value = API_KEY_HEADER, required = false) String key,
             @RequestBody Job job
-    ) throws IOException {
+    ) {
         // 8080 은 인터넷에 열려 있으므로 키 비교에 걸리는 시간으로 키를 추측할 수 없게 상수 시간 비교를 쓴다
         if (key == null || !MessageDigest.isEqual(apiKey, key.getBytes(StandardCharsets.UTF_8))) {
             throw new GenerationException(ErrorCode.GENERATION_INVALID_API_KEY);
         }
-        petModelCallbackService.handle(job);
+        petModelResultService.apply(job); // 모르는 작업·이미 반영한 작업은 무시하고 200 (오류면 파이프라인이 다시 보낸다)
         return ApiResponse.ok();
     }
 }

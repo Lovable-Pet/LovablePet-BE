@@ -37,6 +37,26 @@ public class RestClientConfig {
                 .build();
     }
 
+    /**
+     * 공공데이터포털 구조동물 조회용. pet 도메인의 PublicAnimalClient 가 인증키까지 인코딩한 전체 URI 를 넘긴다.
+     */
+    @Bean
+    public RestClient publicAnimalRestClient(RestClient.Builder builder, PublicAnimalProperties properties) {
+        return builder
+                .requestFactory(requestFactory(properties.connectTimeout(), properties.readTimeout()))
+                .build();
+    }
+
+    /**
+     * 공고 사진 내려받기용 (AR 생성 때 관리자가 고른 사진을 파이프라인에 넘긴다). 사진 주소 전체를 넘긴다.
+     */
+    @Bean
+    public RestClient petPhotoRestClient(RestClient.Builder builder) {
+        return builder
+                .requestFactory(requestFactory(java.time.Duration.ofSeconds(10), java.time.Duration.ofSeconds(30)))
+                .build();
+    }
+
     @Bean
     public RestClient kakaoAuthRestClient(RestClient.Builder builder, KakaoOAuthProperties properties) {
         return builder

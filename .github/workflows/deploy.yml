@@ -81,6 +81,26 @@ jobs:
           # 콜백 경로가 JWT 인증에 막히지 않고 컨트롤러의 키 검사까지 오는지 (Security 에서 막히면 COMMON_401)
           curl -sS -X POST localhost:8080/internal/pet-models/callback \
             -H 'Content-Type: application/json' -d '{}' | grep -q GENERATION_401_KEY
+          # 키가 맞으면 모르는 작업의 결과는 무시하고 200 (pet_model 조회가 PostgreSQL 에서 돈다)
+          curl -fsS -X POST localhost:8080/internal/pet-models/callback -H 'X-API-Key: smoke' \
+            -H 'Content-Type: application/json' -d '{"job_id":"smoke-unknown","pet_id":"0","status":"done"}' \
+            | grep -q '"resultType":"SUCCESS"'
+
+          # 관리자 API: 토큰이 없으면 COMMON_401, 가입한 일반 회원(role USER)의 토큰이면 COMMON_403
+          curl -sS localhost:8080/api/admin/ping | grep -q '"COMMON_401"'
+          signup=$(curl -fsS -X POST localhost:8080/api/auth/signup -H 'Content-Type: application/json' \
+            -d '{"username":"smoke_user","email":"smoke@example.com","password":"password1234","nickname":"smoke"}')
+          [ "$(echo "$signup" | jq -r .success.data.role)" = USER ]
+          token=$(echo "$signup" | jq -r .success.data.accessToken)
+          curl -sS localhost:8080/api/admin/ping -H "Authorization: Bearer $token" | grep -q '"COMMON_403"'
+
+          # 유기견 조회는 로그인 없이 되고, 목록·필터 쿼리가 PostgreSQL 에서 돈다 (스모크 DB 는 비어 있다)
+          curl -fsS 'localhost:8080/api/pets?region=%EA%B2%BD%EA%B8%B0%EB%8F%84&minWeight=1&sort=OLDEST' | grep -q '"resultType":"SUCCESS"'
+          curl -fsS localhost:8080/api/pets/filters | grep -q '"resultType":"SUCCESS"'
+          curl -sS localhost:8080/api/pets/999999 | grep -q '"PET_404"'
+          curl -fsS 'localhost:8080/api/pets?hasModel=true' | grep -q '"resultType":"SUCCESS"'
+          # GLB 파일 주소는 로그인 없이 열린다 (없는 파일이라 401 이 아니라 404)
+          [ "$(curl -sS -o /dev/null -w '%{http_code}' localhost:8080/models/0/none.glb)" = 404 ]
 
           # 자동 생성 보안 비밀번호가 기동 로그에 남지 않는지
           if docker logs smoke 2>&1 | grep -q "generated security password"; then
@@ -111,13 +131,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Copy compose file
+      - name: Copy compose file and Caddyfile
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: deploy/docker-compose.yml
+          source: deploy/docker-compose.yml,deploy/Caddyfile
           target: lovablepet-spring      # SSH 사용자 홈 기준 상대 경로
           strip_components: 1
 
@@ -147,6 +167,9 @@ jobs:
             docker image prune -f
             curl -fsS --retry 30 --retry-delay 2 --retry-all-errors localhost:8080/actuator/health \
               || { docker logs --tail 100 spring; exit 1; }
+            # 도메인으로도 열리는지 (DNS → caddy → spring). 처음 배포라면 인증서 발급까지 몇 초 걸린다
+            curl -fsS --retry 10 --retry-delay 3 --retry-all-errors https://api.lovablepet.tech/actuator/health \
+              || { echo "https://api.lovablepet.tech 가 열리지 않는다 (DNS A 레코드, 보안 그룹 80/443 확인)"; docker logs --tail 50 caddy; exit 1; }
 
             # 배포마다 커밋 해시 태그 이미지가 하나씩 남는다(prune -f 는 태그 없는 이미지만 지움).
             # 새 컨테이너가 정상으로 뜬 뒤, 컨테이너가 쓰지 않는 이 저장소 이미지만 지운다 (파이프라인·postgres 는 라벨이 달라 남는다)
