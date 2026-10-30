@@ -1,5 +1,9 @@
 # 운영 프로파일 — 민감정보는 기본값 없이 환경변수로만 주입한다.
 # 값이 누락되면 애플리케이션이 기동 실패하도록 의도적으로 기본값을 두지 않았다.
+server:
+  # 운영은 Caddy(https) 뒤에 있다. X-Forwarded-* 를 읽어야 리다이렉트·Swagger 서버 주소가 https 도메인으로 잡힌다
+  forward-headers-strategy: framework
+
 spring:
   datasource:
     url: ${DB_URL}

@@ -1,7 +1,9 @@
 # EC2 서버의 ~/lovablepet-spring/ 에서 .env, data/ 옆에 둔다.
 # 배포 워크플로(.github/workflows/deploy.yml)가 이 파일을 복사하고 docker compose up -d 를 실행한다.
 #
-# - spring: 외부 네트워크 lovablepet 으로 파이프라인 컨테이너(http://pipeline:8000)와 통신하고, 8080 만 외부에 연다.
+# - caddy: 80/443 을 받아 https://api.lovablepet.tech 를 spring:8080 으로 넘긴다. 인증서(Let's Encrypt)는 자동 발급·갱신. 설정은 Caddyfile.
+# - spring: 외부 네트워크 lovablepet 으로 파이프라인 컨테이너(http://pipeline:8000)와 통신한다.
+#           8080 은 서버 안(127.0.0.1)에서만 열어 배포 헬스체크에 쓰고, 외부에서는 caddy 를 거친다.
 # - postgres: 내부 네트워크 db 에만 붙고 포트를 열지 않는다.
 # - 메모리: 8 GB 를 파이프라인(작업 중 최고 약 3.1 GB)과 나눠 쓴다. spring 1.5 GB(힙은 그 70%), postgres 1 GB.
 name: lovablepet-spring
@@ -13,6 +15,24 @@ x-logging: &logging
     max-file: "3"
 
 services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"                       # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data                  # 인증서. 지우면 재발급하는데 Let's Encrypt 발급 횟수 제한이 있다
+    depends_on:
+      - spring
+    mem_limit: 128m
+    logging: *logging
+    networks:
+      - lovablepet
+
   postgres:
     image: pgvector/pgvector:pg16           # V1 마이그레이션이 vector 확장을 쓴다
     container_name: lovablepet-postgres
@@ -49,7 +69,7 @@ services:
     volumes:
       - ./data/storage:/data/storage        # 업로드 파일 + models/(GLB). 폴더 소유자는 uid 10001 (Dockerfile)
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"               # 서버 안에서만. 외부는 caddy(443) 로 들어온다
     depends_on:
       postgres:
         condition: service_healthy
