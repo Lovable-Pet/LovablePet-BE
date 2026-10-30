@@ -131,13 +131,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Copy compose file
+      - name: Copy compose file and Caddyfile
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: deploy/docker-compose.yml
+          source: deploy/docker-compose.yml,deploy/Caddyfile
           target: lovablepet-spring      # SSH 사용자 홈 기준 상대 경로
           strip_components: 1
 
@@ -167,6 +167,9 @@ jobs:
             docker image prune -f
             curl -fsS --retry 30 --retry-delay 2 --retry-all-errors localhost:8080/actuator/health \
               || { docker logs --tail 100 spring; exit 1; }
+            # 도메인으로도 열리는지 (DNS → caddy → spring). 처음 배포라면 인증서 발급까지 몇 초 걸린다
+            curl -fsS --retry 10 --retry-delay 3 --retry-all-errors https://api.lovablepet.tech/actuator/health \
+              || { echo "https://api.lovablepet.tech 가 열리지 않는다 (DNS A 레코드, 보안 그룹 80/443 확인)"; docker logs --tail 50 caddy; exit 1; }
 
             # 배포마다 커밋 해시 태그 이미지가 하나씩 남는다(prune -f 는 태그 없는 이미지만 지움).
             # 새 컨테이너가 정상으로 뜬 뒤, 컨테이너가 쓰지 않는 이 저장소 이미지만 지운다 (파이프라인·postgres 는 라벨이 달라 남는다)

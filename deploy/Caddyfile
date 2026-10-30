@@ -1,0 +1,8 @@
+# EC2 서버의 ~/lovablepet-spring/Caddyfile — 배포 워크플로가 deploy/Caddyfile 을 복사한다.
+# Caddy 가 80/443 을 받고 Let's Encrypt 인증서를 자동 발급·갱신한다. (인증서는 ./data/caddy 에 저장)
+# DNS: api.lovablepet.tech A 레코드 → EC2 Elastic IP. 보안 그룹은 80, 443 만 연다.
+
+api.lovablepet.tech {
+    encode gzip
+    reverse_proxy spring:8080
+}
