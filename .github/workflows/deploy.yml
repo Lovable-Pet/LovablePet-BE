@@ -102,6 +102,23 @@ jobs:
           # GLB 파일 주소는 로그인 없이 열린다 (없는 파일이라 401 이 아니라 404)
           [ "$(curl -sS -o /dev/null -w '%{http_code}' localhost:8080/models/0/none.glb)" = 404 ]
 
+          # 찜: 로그인 없이는 COMMON_401, 없는 동물은 PET_404. 동물을 하나 넣고 찜하기 → 목록 → 취소가 한 바퀴 돈다
+          curl -sS -X PUT localhost:8080/api/pets/1/favorite | grep -q '"COMMON_401"'
+          curl -sS localhost:8080/api/members/me/favorites | grep -q '"COMMON_401"'
+          curl -sS -X PUT localhost:8080/api/pets/999999/favorite -H "Authorization: Bearer $token" | grep -q '"PET_404"'
+          pet_id=$(docker exec smoke-db psql -U lovablepet -d lovablepet -tAc \
+            "insert into pet (desertion_no, process_state, listed, notice_end, photo_urls, raw, synced_at)
+             values ('SMOKE-0001', '보호중', true, current_date - 1, '{}', '{}'::jsonb, now()) returning id")
+          curl -fsS -X PUT "localhost:8080/api/pets/$pet_id/favorite" -H "Authorization: Bearer $token" | grep -q '"favorited":true'
+          curl -fsS -X PUT "localhost:8080/api/pets/$pet_id/favorite" -H "Authorization: Bearer $token" | grep -q '"favorited":true'  # 두 번 눌러도 성공
+          curl -fsS localhost:8080/api/members/me/favorites -H "Authorization: Bearer $token" | grep -q '"totalElements":1'
+          # 로그인하면 일반 목록·상세에 찜 여부가 채워지고, 토큰이 없으면 false
+          curl -fsS "localhost:8080/api/pets/$pet_id" -H "Authorization: Bearer $token" | grep -q '"favorited":true'
+          curl -fsS "localhost:8080/api/pets/$pet_id" | grep -q '"favorited":false'
+          curl -fsS localhost:8080/api/pets -H "Authorization: Bearer $token" | grep -q '"favorited":true'
+          curl -fsS -X DELETE "localhost:8080/api/pets/$pet_id/favorite" -H "Authorization: Bearer $token" | grep -q '"favorited":false'
+          curl -fsS localhost:8080/api/members/me/favorites -H "Authorization: Bearer $token" | grep -q '"totalElements":0'
+
           # 자동 생성 보안 비밀번호가 기동 로그에 남지 않는지
           if docker logs smoke 2>&1 | grep -q "generated security password"; then
             echo "기동 로그에 자동 생성 비밀번호가 있다 (UserDetailsServiceAutoConfiguration)"; exit 1
