@@ -106,9 +106,11 @@ jobs:
           curl -sS -X PUT localhost:8080/api/pets/1/favorite | grep -q '"COMMON_401"'
           curl -sS localhost:8080/api/members/me/favorites | grep -q '"COMMON_401"'
           curl -sS -X PUT localhost:8080/api/pets/999999/favorite -H "Authorization: Bearer $token" | grep -q '"PET_404"'
-          pet_id=$(docker exec smoke-db psql -U lovablepet -d lovablepet -tAc \
+          pet_id=$(docker exec smoke-db psql -U lovablepet -d lovablepet -qtAc \
             "insert into pet (desertion_no, process_state, listed, notice_end, photo_urls, raw, synced_at)
              values ('SMOKE-0001', '보호중', true, current_date - 1, '{}', '{}'::jsonb, now()) returning id")
+          echo "smoke pet id: [$pet_id]"
+          case "$pet_id" in ''|*[!0-9]*) echo "동물을 넣지 못했다"; exit 1 ;; esac
           curl -fsS -X PUT "localhost:8080/api/pets/$pet_id/favorite" -H "Authorization: Bearer $token" | grep -q '"favorited":true'
           curl -fsS -X PUT "localhost:8080/api/pets/$pet_id/favorite" -H "Authorization: Bearer $token" | grep -q '"favorited":true'  # 두 번 눌러도 성공
           curl -fsS localhost:8080/api/members/me/favorites -H "Authorization: Bearer $token" | grep -q '"totalElements":1'
