@@ -48,8 +48,9 @@ public class PetQueryService {
     private final Clock clock;
 
     public PetPageResponse search(PetSearchCondition condition, int page, int size) {
+        LocalDate today = today();
         List<Specification<Pet>> specs = new ArrayList<>();
-        specs.add(PetSpecifications.adoptable(today()));
+        specs.add(PetSpecifications.adoptable(today));
         if (StringUtils.hasText(condition.region())) {
             specs.add(PetSpecifications.orgNameStartsWith(condition.region().trim()));
         }
@@ -70,7 +71,7 @@ public class PetQueryService {
         Page<Pet> pets = petRepository.findAll(Specification.allOf(specs), PageRequest.of(page, size, sort));
         Set<Long> withModel = pets.isEmpty() ? Set.of()
                 : petModelRepository.findPetIdsByStatus(pets.map(Pet::getId).getContent(), PetModelStatus.DONE);
-        return PetPageResponse.from(pets.map(pet -> PetSummaryResponse.from(pet, withModel.contains(pet.getId()))));
+        return PetPageResponse.from(pets.map(pet -> PetSummaryResponse.from(pet, today, withModel.contains(pet.getId()))));
     }
 
     /** 입양·반환 등으로 목록에서 빠진 동물도 조회된다 (찜 목록에서 열 때). adoptable 로 구분한다. */

@@ -39,10 +39,13 @@ public record PetSummaryResponse(
         LocalDate noticeStart,
 
         @Schema(description = "AR 모델이 있는지", example = "false")
-        boolean hasModel
+        boolean hasModel,
+
+        @Schema(description = "지금 입양 가능한지. 입양 가능 목록에서는 항상 true, 찜 목록에서는 입양·반환되면 false", example = "true")
+        boolean adoptable
 ) {
 
-    public static PetSummaryResponse from(Pet pet, boolean hasModel) {
+    public static PetSummaryResponse from(Pet pet, LocalDate today, boolean hasModel) {
         return new PetSummaryResponse(
                 pet.getId(),
                 pet.displayName(),
@@ -54,6 +57,7 @@ public record PetSummaryResponse(
                 pet.getCareName(),
                 pet.getPhotoUrls().isEmpty() ? null : pet.getPhotoUrls().getFirst(),
                 pet.getNoticeStart(),
-                hasModel);
+                hasModel,
+                pet.isAdoptable(today));
     }
 }
