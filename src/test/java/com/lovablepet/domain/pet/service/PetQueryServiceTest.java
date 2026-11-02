@@ -54,6 +54,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class PetQueryServiceTest {
@@ -170,6 +171,58 @@ class PetQueryServiceTest {
             assertThat(kind.name()).isEqualTo("믹스견");
             assertThat(kind.count()).isEqualTo(1490);
         });
+    }
+
+    @Test
+    @DisplayName("목록: 로그인했으면 이 페이지에서 찜한 동물의 favorited 가 true")
+    void search_favoritedWhenLoggedIn() throws IOException {
+        Pet pet = fixturePet("445464202602934");
+        given(petRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .willAnswer(invocation -> new PageImpl<>(List.of(pet), invocation.getArgument(1), 1));
+        given(favoriteRepository.findFavoritePetIds(3L, List.of(7L))).willReturn(Set.of(7L));
+
+        PetPageResponse page = service().search(new PetSearchCondition(null, null, null, null, null, PetSort.NEWEST), 0, 20, 3L);
+
+        assertThat(page.items()).singleElement().satisfies(item -> assertThat(item.favorited()).isTrue());
+    }
+
+    @Test
+    @DisplayName("목록: 로그인하지 않았으면 찜을 조회하지 않고 favorited 가 false")
+    void search_notLoggedIn() throws IOException {
+        Pet pet = fixturePet("445464202602934");
+        given(petRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .willAnswer(invocation -> new PageImpl<>(List.of(pet), invocation.getArgument(1), 1));
+
+        PetPageResponse page = service().search(new PetSearchCondition(null, null, null, null, null, PetSort.NEWEST), 0, 20, null);
+
+        assertThat(page.items()).singleElement().satisfies(item -> assertThat(item.favorited()).isFalse());
+        verifyNoInteractions(favoriteRepository);
+    }
+
+    @Test
+    @DisplayName("상세: 로그인했으면 찜 여부를 채우고, 로그인하지 않았으면 조회하지 않고 false")
+    void get_favorited() throws IOException {
+        given(petRepository.findById(7L)).willReturn(Optional.of(fixturePet("413588202600395")));
+        given(favoriteRepository.existsByMemberIdAndPetId(3L, 7L)).willReturn(true);
+
+        assertThat(service().get(7L, 3L).favorited()).isTrue();
+        assertThat(service().get(7L, null).favorited()).isFalse();
+        verify(favoriteRepository, times(1)).existsByMemberIdAndPetId(3L, 7L);
+    }
+
+    @Test
+    @DisplayName("찜 목록 응답: 모두 favorited=true 이고(찜을 다시 조회하지 않음), 보호가 끝난 동물은 adoptable=false")
+    void toFavoritePageResponse() throws IOException {
+        Pet ended = fixturePet("413588202600395");
+        ReflectionTestUtils.setField(ended, "listed", false); // 입양·반환으로 목록에서 내려감
+
+        PetPageResponse page = service().toFavoritePageResponse(new PageImpl<>(List.of(ended)));
+
+        assertThat(page.items()).singleElement().satisfies(item -> {
+            assertThat(item.favorited()).isTrue();
+            assertThat(item.adoptable()).isFalse();
+        });
+        verifyNoInteractions(favoriteRepository);
     }
 
     private static PetCountByName count(String name, long count) {
