@@ -1,5 +1,6 @@
 package com.lovablepet.domain.pet.service;
 
+import com.lovablepet.domain.favorite.repository.FavoriteRepository;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.Behavior;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.Fit;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.Job;
@@ -53,6 +54,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class PetQueryServiceTest {
@@ -66,6 +68,8 @@ class PetQueryServiceTest {
     private PetRepository petRepository;
     @Mock
     private PetModelRepository petModelRepository;
+    @Mock
+    private FavoriteRepository favoriteRepository;
 
     @Test
     @DisplayName("상세: 실제 응답 동물을 그대로 내려주고, 원본 JSON(담당자 이름 포함)은 응답에 없다")
@@ -73,7 +77,7 @@ class PetQueryServiceTest {
         Pet pet = fixturePet("413588202600395");
         given(petRepository.findById(7L)).willReturn(Optional.of(pet));
 
-        PetDetailResponse detail = service().get(7L);
+        PetDetailResponse detail = service().get(7L, null);
         String json = jsonMapper.writeValueAsString(detail);
 
         assertThat(detail.id()).isEqualTo(7L);
@@ -97,7 +101,7 @@ class PetQueryServiceTest {
                 new Behavior(1.0, "tail_wag", false), null, null, 0.075), "413588202600395/413588202600395-a5ca257e.glb", NOW);
         given(petModelRepository.findByPetIdAndStatus(7L, PetModelStatus.DONE)).willReturn(Optional.of(done));
 
-        PetModelView model = service().get(7L).model();
+        PetModelView model = service().get(7L, null).model();
 
         assertThat(model.glbUrl()).isEqualTo("/models/413588202600395/413588202600395-a5ca257e.glb");
         assertThat(model.withersM()).isEqualByComparingTo("0.402");
@@ -111,7 +115,7 @@ class PetQueryServiceTest {
     void get_adoptableUsesKoreanDate() throws IOException {
         given(petRepository.findById(7L)).willReturn(Optional.of(fixturePet("413588202600395")));
 
-        assertThat(service().get(7L).adoptable()).isTrue();
+        assertThat(service().get(7L, null).adoptable()).isTrue();
     }
 
     @Test
@@ -119,7 +123,7 @@ class PetQueryServiceTest {
     void get_notFound() {
         given(petRepository.findById(99L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service().get(99L))
+        assertThatThrownBy(() -> service().get(99L, null))
                 .isInstanceOf(PetException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.PET_NOT_FOUND);
     }
@@ -134,8 +138,8 @@ class PetQueryServiceTest {
 
         given(petModelRepository.findPetIdsByStatus(List.of(7L), PetModelStatus.DONE)).willReturn(Set.of(7L));
 
-        PetPageResponse newest = service.search(new PetSearchCondition(" ", null, null, null, null, PetSort.NEWEST), 2, 20);
-        service.search(new PetSearchCondition("경기도", "믹스견", null, null, true, PetSort.OLDEST), 0, 10);
+        PetPageResponse newest = service.search(new PetSearchCondition(" ", null, null, null, null, PetSort.NEWEST), 2, 20, null);
+        service.search(new PetSearchCondition("경기도", "믹스견", null, null, true, PetSort.OLDEST), 0, 10, null);
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
         verify(petRepository, times(2)).findAll(any(Specification.class), pageable.capture());
@@ -169,6 +173,58 @@ class PetQueryServiceTest {
         });
     }
 
+    @Test
+    @DisplayName("목록: 로그인했으면 이 페이지에서 찜한 동물의 favorited 가 true")
+    void search_favoritedWhenLoggedIn() throws IOException {
+        Pet pet = fixturePet("445464202602934");
+        given(petRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .willAnswer(invocation -> new PageImpl<>(List.of(pet), invocation.getArgument(1), 1));
+        given(favoriteRepository.findFavoritePetIds(3L, List.of(7L))).willReturn(Set.of(7L));
+
+        PetPageResponse page = service().search(new PetSearchCondition(null, null, null, null, null, PetSort.NEWEST), 0, 20, 3L);
+
+        assertThat(page.items()).singleElement().satisfies(item -> assertThat(item.favorited()).isTrue());
+    }
+
+    @Test
+    @DisplayName("목록: 로그인하지 않았으면 찜을 조회하지 않고 favorited 가 false")
+    void search_notLoggedIn() throws IOException {
+        Pet pet = fixturePet("445464202602934");
+        given(petRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .willAnswer(invocation -> new PageImpl<>(List.of(pet), invocation.getArgument(1), 1));
+
+        PetPageResponse page = service().search(new PetSearchCondition(null, null, null, null, null, PetSort.NEWEST), 0, 20, null);
+
+        assertThat(page.items()).singleElement().satisfies(item -> assertThat(item.favorited()).isFalse());
+        verifyNoInteractions(favoriteRepository);
+    }
+
+    @Test
+    @DisplayName("상세: 로그인했으면 찜 여부를 채우고, 로그인하지 않았으면 조회하지 않고 false")
+    void get_favorited() throws IOException {
+        given(petRepository.findById(7L)).willReturn(Optional.of(fixturePet("413588202600395")));
+        given(favoriteRepository.existsByMemberIdAndPetId(3L, 7L)).willReturn(true);
+
+        assertThat(service().get(7L, 3L).favorited()).isTrue();
+        assertThat(service().get(7L, null).favorited()).isFalse();
+        verify(favoriteRepository, times(1)).existsByMemberIdAndPetId(3L, 7L);
+    }
+
+    @Test
+    @DisplayName("찜 목록 응답: 모두 favorited=true 이고(찜을 다시 조회하지 않음), 보호가 끝난 동물은 adoptable=false")
+    void toFavoritePageResponse() throws IOException {
+        Pet ended = fixturePet("413588202600395");
+        ReflectionTestUtils.setField(ended, "listed", false); // 입양·반환으로 목록에서 내려감
+
+        PetPageResponse page = service().toFavoritePageResponse(new PageImpl<>(List.of(ended)));
+
+        assertThat(page.items()).singleElement().satisfies(item -> {
+            assertThat(item.favorited()).isTrue();
+            assertThat(item.adoptable()).isFalse();
+        });
+        verifyNoInteractions(favoriteRepository);
+    }
+
     private static PetCountByName count(String name, long count) {
         return new PetCountByName() {
             @Override
@@ -186,7 +242,8 @@ class PetQueryServiceTest {
     private PetQueryService service() {
         PetModelFiles files = new PetModelFiles(new PetPipelineProperties("http://pipeline:8000", "key", "", "models",
                 Duration.ofSeconds(10), Duration.ofSeconds(90), null, 30, "/models"));
-        return new PetQueryService(petRepository, petModelRepository, files, Clock.fixed(NOW, ZoneOffset.UTC));
+        return new PetQueryService(petRepository, petModelRepository, files, favoriteRepository,
+                Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private Pet fixturePet(String desertionNo) throws IOException {
