@@ -1,5 +1,6 @@
 package com.lovablepet.domain.pet.service;
 
+import com.lovablepet.domain.favorite.repository.FavoriteRepository;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.Behavior;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.Fit;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.Job;
@@ -66,6 +67,8 @@ class PetQueryServiceTest {
     private PetRepository petRepository;
     @Mock
     private PetModelRepository petModelRepository;
+    @Mock
+    private FavoriteRepository favoriteRepository;
 
     @Test
     @DisplayName("상세: 실제 응답 동물을 그대로 내려주고, 원본 JSON(담당자 이름 포함)은 응답에 없다")
@@ -73,7 +76,7 @@ class PetQueryServiceTest {
         Pet pet = fixturePet("413588202600395");
         given(petRepository.findById(7L)).willReturn(Optional.of(pet));
 
-        PetDetailResponse detail = service().get(7L);
+        PetDetailResponse detail = service().get(7L, null);
         String json = jsonMapper.writeValueAsString(detail);
 
         assertThat(detail.id()).isEqualTo(7L);
@@ -97,7 +100,7 @@ class PetQueryServiceTest {
                 new Behavior(1.0, "tail_wag", false), null, null, 0.075), "413588202600395/413588202600395-a5ca257e.glb", NOW);
         given(petModelRepository.findByPetIdAndStatus(7L, PetModelStatus.DONE)).willReturn(Optional.of(done));
 
-        PetModelView model = service().get(7L).model();
+        PetModelView model = service().get(7L, null).model();
 
         assertThat(model.glbUrl()).isEqualTo("/models/413588202600395/413588202600395-a5ca257e.glb");
         assertThat(model.withersM()).isEqualByComparingTo("0.402");
@@ -111,7 +114,7 @@ class PetQueryServiceTest {
     void get_adoptableUsesKoreanDate() throws IOException {
         given(petRepository.findById(7L)).willReturn(Optional.of(fixturePet("413588202600395")));
 
-        assertThat(service().get(7L).adoptable()).isTrue();
+        assertThat(service().get(7L, null).adoptable()).isTrue();
     }
 
     @Test
@@ -119,7 +122,7 @@ class PetQueryServiceTest {
     void get_notFound() {
         given(petRepository.findById(99L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service().get(99L))
+        assertThatThrownBy(() -> service().get(99L, null))
                 .isInstanceOf(PetException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.PET_NOT_FOUND);
     }
@@ -134,8 +137,8 @@ class PetQueryServiceTest {
 
         given(petModelRepository.findPetIdsByStatus(List.of(7L), PetModelStatus.DONE)).willReturn(Set.of(7L));
 
-        PetPageResponse newest = service.search(new PetSearchCondition(" ", null, null, null, null, PetSort.NEWEST), 2, 20);
-        service.search(new PetSearchCondition("경기도", "믹스견", null, null, true, PetSort.OLDEST), 0, 10);
+        PetPageResponse newest = service.search(new PetSearchCondition(" ", null, null, null, null, PetSort.NEWEST), 2, 20, null);
+        service.search(new PetSearchCondition("경기도", "믹스견", null, null, true, PetSort.OLDEST), 0, 10, null);
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
         verify(petRepository, times(2)).findAll(any(Specification.class), pageable.capture());
@@ -186,7 +189,8 @@ class PetQueryServiceTest {
     private PetQueryService service() {
         PetModelFiles files = new PetModelFiles(new PetPipelineProperties("http://pipeline:8000", "key", "", "models",
                 Duration.ofSeconds(10), Duration.ofSeconds(90), null, 30, "/models"));
-        return new PetQueryService(petRepository, petModelRepository, files, Clock.fixed(NOW, ZoneOffset.UTC));
+        return new PetQueryService(petRepository, petModelRepository, files, favoriteRepository,
+                Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private Pet fixturePet(String desertionNo) throws IOException {

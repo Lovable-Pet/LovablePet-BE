@@ -42,10 +42,13 @@ public record PetSummaryResponse(
         boolean hasModel,
 
         @Schema(description = "지금 입양 가능한지. 입양 가능 목록에서는 항상 true, 찜 목록에서는 입양·반환되면 false", example = "true")
-        boolean adoptable
+        boolean adoptable,
+
+        @Schema(description = "내가 찜했는지. 로그인하지 않았으면 false", example = "false")
+        boolean favorited
 ) {
 
-    public static PetSummaryResponse from(Pet pet, LocalDate today, boolean hasModel) {
+    public static PetSummaryResponse from(Pet pet, LocalDate today, boolean hasModel, boolean favorited) {
         return new PetSummaryResponse(
                 pet.getId(),
                 pet.displayName(),
@@ -58,6 +61,7 @@ public record PetSummaryResponse(
                 pet.getPhotoUrls().isEmpty() ? null : pet.getPhotoUrls().getFirst(),
                 pet.getNoticeStart(),
                 hasModel,
-                pet.isAdoptable(today));
+                pet.isAdoptable(today),
+                favorited);
     }
 }
