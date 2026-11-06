@@ -99,8 +99,9 @@ jobs:
           curl -fsS localhost:8080/api/pets/filters | grep -q '"resultType":"SUCCESS"'
           curl -sS localhost:8080/api/pets/999999 | grep -q '"PET_404"'
           curl -fsS 'localhost:8080/api/pets?hasModel=true' | grep -q '"resultType":"SUCCESS"'
-          # GLB 파일 주소는 로그인 없이 열린다 (없는 파일이라 401 이 아니라 404)
+          # GLB·USDZ 파일 주소는 로그인 없이 열린다 (없는 파일이라 401 이 아니라 404)
           [ "$(curl -sS -o /dev/null -w '%{http_code}' localhost:8080/models/0/none.glb)" = 404 ]
+          [ "$(curl -sS -o /dev/null -w '%{http_code}' localhost:8080/models/0/none.usdz)" = 404 ]
 
           # 찜: 로그인 없이는 COMMON_401, 없는 동물은 PET_404. 동물을 하나 넣고 찜하기 → 목록 → 취소가 한 바퀴 돈다
           curl -sS -X PUT localhost:8080/api/members/me/favorites/1 | grep -q '"COMMON_401"'

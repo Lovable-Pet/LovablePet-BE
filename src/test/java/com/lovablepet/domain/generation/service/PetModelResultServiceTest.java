@@ -2,8 +2,10 @@ package com.lovablepet.domain.generation.service;
 
 import com.lovablepet.domain.generation.client.PetPipelineClient;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.Job;
+import com.lovablepet.domain.generation.client.PetPipelineDtos.Model;
 import com.lovablepet.domain.generation.entity.PetModel;
 import com.lovablepet.domain.generation.repository.PetModelRepository;
+import com.lovablepet.domain.generation.service.PetModelFiles.Format;
 import com.lovablepet.domain.pet.client.PublicAnimalItem;
 import com.lovablepet.domain.pet.entity.Pet;
 import com.lovablepet.domain.pet.repository.PetRepository;
@@ -40,6 +42,9 @@ class PetModelResultServiceTest {
     private static final Instant NOW = Instant.parse("2026-10-29T03:00:00Z");
     private static final String JOB_ID = "448567202600123-a5ca257e";
     private static final byte[] GLB = {'g', 'l', 'T', 'F'};
+    private static final byte[] USDZ = {'P', 'K', 3, 4};
+    private static final String GLB_PATH = "448567202600123/" + JOB_ID + ".glb";
+    private static final String USDZ_PATH = "448567202600123/" + JOB_ID + ".usdz";
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
@@ -69,9 +74,27 @@ class PetModelResultServiceTest {
         given(petModelRepository.findByJobId(JOB_ID)).willReturn(Optional.of(model));
         given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
         given(pipelineClient.download(JOB_ID, "model.glb")).willReturn(GLB);
-        given(files.saveGlb("448567202600123", JOB_ID, GLB)).willReturn("448567202600123/" + JOB_ID + ".glb");
+        given(files.save("448567202600123", JOB_ID, Format.GLB, GLB)).willReturn(GLB_PATH);
         Job job = job("done");
-        given(writer.finish(12L, job, "448567202600123/" + JOB_ID + ".glb", NOW)).willReturn(true);
+        given(writer.finish(12L, job, GLB_PATH, null, NOW)).willReturn(true);
+
+        service.apply(job);
+
+        verify(pipelineClient, never()).download(JOB_ID, "model.usdz"); // usdz_url 이 없으면 받지 않는다
+        verify(pipelineClient).delete(JOB_ID);
+    }
+
+    @Test
+    @DisplayName("done + usdz_url: USDZ 도 받아 GLB 옆에 저장하고 두 경로를 함께 반영한다")
+    void done_withUsdz_savesBoth() {
+        given(petModelRepository.findByJobId(JOB_ID)).willReturn(Optional.of(pendingModel()));
+        given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
+        given(pipelineClient.download(JOB_ID, "model.glb")).willReturn(GLB);
+        given(pipelineClient.download(JOB_ID, "model.usdz")).willReturn(USDZ);
+        given(files.save("448567202600123", JOB_ID, Format.GLB, GLB)).willReturn(GLB_PATH);
+        given(files.save("448567202600123", JOB_ID, Format.USDZ, USDZ)).willReturn(USDZ_PATH);
+        Job job = doneWithUsdz();
+        given(writer.finish(12L, job, GLB_PATH, USDZ_PATH, NOW)).willReturn(true);
 
         service.apply(job);
 
@@ -79,10 +102,27 @@ class PetModelResultServiceTest {
     }
 
     @Test
+    @DisplayName("USDZ 를 받지 못하면 GLB 만 반영하고, 파이프라인 작업 파일은 지우지 않고 남긴다")
+    void usdzDownloadFails_appliesGlbOnly() {
+        given(petModelRepository.findByJobId(JOB_ID)).willReturn(Optional.of(pendingModel()));
+        given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
+        given(pipelineClient.download(JOB_ID, "model.glb")).willReturn(GLB);
+        given(pipelineClient.download(JOB_ID, "model.usdz")).willThrow(new ResourceAccessException("down"));
+        given(files.save("448567202600123", JOB_ID, Format.GLB, GLB)).willReturn(GLB_PATH);
+        Job job = doneWithUsdz();
+        given(writer.finish(12L, job, GLB_PATH, null, NOW)).willReturn(true);
+
+        service.apply(job);
+
+        verify(files, never()).save(any(), any(), eq(Format.USDZ), any());
+        verify(pipelineClient, never()).delete(anyString());
+    }
+
+    @Test
     @DisplayName("같은 콜백이 또 오면(이미 DONE) GLB 를 다시 받지 않고 무시한다")
     void duplicate_ignored() {
         PetModel model = pendingModel();
-        model.complete(job("done"), "448567202600123/" + JOB_ID + ".glb", NOW);
+        model.complete(job("done"), GLB_PATH, null, NOW);
         given(petModelRepository.findByJobId(JOB_ID)).willReturn(Optional.of(model));
 
         service.apply(job("done"));
@@ -107,7 +147,7 @@ class PetModelResultServiceTest {
     void photoRejected_recordsWithoutGlb() {
         given(petModelRepository.findByJobId(JOB_ID)).willReturn(Optional.of(pendingModel()));
         Job job = job("photo_rejected");
-        given(writer.finish(eq(12L), eq(job), isNull(), eq(NOW))).willReturn(true);
+        given(writer.finish(eq(12L), eq(job), isNull(), isNull(), eq(NOW))).willReturn(true);
 
         service.apply(job);
 
@@ -121,8 +161,8 @@ class PetModelResultServiceTest {
         given(petModelRepository.findByJobId(JOB_ID)).willReturn(Optional.of(pendingModel()));
         given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
         given(pipelineClient.download(JOB_ID, "model.glb")).willReturn(GLB);
-        given(files.saveGlb(any(), any(), any())).willReturn("448567202600123/" + JOB_ID + ".glb");
-        given(writer.finish(any(), any(), any(), any()))
+        given(files.save(any(), any(), any(), any())).willReturn(GLB_PATH);
+        given(writer.finish(any(), any(), any(), any(), any()))
                 .willThrow(new ObjectOptimisticLockingFailureException(PetModel.class, 12L));
 
         service.apply(job("done"));
@@ -136,8 +176,8 @@ class PetModelResultServiceTest {
         given(petModelRepository.findByJobId(JOB_ID)).willReturn(Optional.of(pendingModel()));
         given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
         given(pipelineClient.download(JOB_ID, "model.glb")).willReturn(GLB);
-        given(files.saveGlb(any(), any(), any())).willReturn("p.glb");
-        given(writer.finish(any(), any(), any(), any())).willReturn(true);
+        given(files.save(any(), any(), any(), any())).willReturn("p.glb");
+        given(writer.finish(any(), any(), any(), any(), any())).willReturn(true);
         willThrow(new ResourceAccessException("down")).given(pipelineClient).delete(JOB_ID);
 
         service.apply(job("done"));
@@ -158,5 +198,10 @@ class PetModelResultServiceTest {
 
     private static Job job(String status) {
         return new Job(JOB_ID, "448567202600123", status, null, null, null, null, null, null, null, null, null);
+    }
+
+    private static Job doneWithUsdz() {
+        Model model = new Model("/v1/jobs/" + JOB_ID + "/files/model.glb", "/v1/jobs/" + JOB_ID + "/files/model.usdz", null, null);
+        return new Job(JOB_ID, "448567202600123", "done", null, null, null, model, null, null, null, null, null);
     }
 }

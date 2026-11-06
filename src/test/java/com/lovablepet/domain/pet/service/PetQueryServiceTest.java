@@ -90,24 +90,43 @@ class PetQueryServiceTest {
     }
 
     @Test
-    @DisplayName("상세: 완성된 AR 모델이 있으면 glbUrl·체고·탭 동작을 내려준다")
+    @DisplayName("상세: 완성된 AR 모델이 있으면 glbUrl·usdzUrl·체고·탭 동작을 내려준다")
     void get_withModel() throws IOException {
         given(petRepository.findById(7L)).willReturn(Optional.of(fixturePet("413588202600395")));
-        PetModel done = PetModel.reserve(7L, "https://a/1.jpg", new BigDecimal("12.00"), false, 3L, NOW);
-        done.attachJob("413588202600395-a5ca257e");
-        done.complete(new Job("413588202600395-a5ca257e", "413588202600395", "done",
-                new Fit("good", "적합", 100, List.of(), List.of(), "jindo", "vision", "close", List.of(), "jindo", List.of()),
-                null, new Size(12.0, 0.402, 0.7, "weight"), null, List.of("idle", "tail_wag"),
-                new Behavior(1.0, "tail_wag", false), null, null, 0.075), "413588202600395/413588202600395-a5ca257e.glb", NOW);
+        PetModel done = doneModel("413588202600395/413588202600395-a5ca257e.usdz");
         given(petModelRepository.findByPetIdAndStatus(7L, PetModelStatus.DONE)).willReturn(Optional.of(done));
 
         PetModelView model = service().get(7L, null).model();
 
         assertThat(model.glbUrl()).isEqualTo("/models/413588202600395/413588202600395-a5ca257e.glb");
+        assertThat(model.usdzUrl()).isEqualTo("/models/413588202600395/413588202600395-a5ca257e.usdz");
         assertThat(model.withersM()).isEqualByComparingTo("0.402");
         assertThat(model.template()).isEqualTo("jindo");
         assertThat(model.behavior().tapAnimation()).isEqualTo("tail_wag");
         assertThat(model.behavior().playbackRate()).isEqualByComparingTo("1.0");
+    }
+
+    @Test
+    @DisplayName("상세: USDZ 가 없는 모델(변환 실패·USDZ 이전 모델)은 glbUrl 만 있고 usdzUrl 은 null")
+    void get_withModelWithoutUsdz() throws IOException {
+        given(petRepository.findById(7L)).willReturn(Optional.of(fixturePet("413588202600395")));
+        given(petModelRepository.findByPetIdAndStatus(7L, PetModelStatus.DONE)).willReturn(Optional.of(doneModel(null)));
+
+        PetModelView model = service().get(7L, null).model();
+
+        assertThat(model.glbUrl()).isEqualTo("/models/413588202600395/413588202600395-a5ca257e.glb");
+        assertThat(model.usdzUrl()).isNull();
+    }
+
+    private static PetModel doneModel(String usdzPath) {
+        PetModel done = PetModel.reserve(7L, "https://a/1.jpg", new BigDecimal("12.00"), false, 3L, NOW);
+        done.attachJob("413588202600395-a5ca257e");
+        done.complete(new Job("413588202600395-a5ca257e", "413588202600395", "done",
+                new Fit("good", "적합", 100, List.of(), List.of(), "jindo", "vision", "close", List.of(), "jindo", List.of()),
+                null, new Size(12.0, 0.402, 0.7, "weight"), null, List.of("idle", "tail_wag"),
+                new Behavior(1.0, "tail_wag", false), null, null, 0.075),
+                "413588202600395/413588202600395-a5ca257e.glb", usdzPath, NOW);
+        return done;
     }
 
     @Test
