@@ -11,6 +11,11 @@ public record PetModelView(
                 example = "/models/448567202600123/448567202600123-a5ca257e.glb")
         String glbUrl,
 
+        @Schema(description = "같은 모델의 USDZ 주소 (아이폰 AR Quick Look 용, model-viewer 의 ios-src). GLB 와 같은 실제 크기이고 idle 하나만 반복 재생한다. "
+                + "약 5~7MB. 변환에 실패했거나 USDZ 를 만들기 전에 완성된 모델이면 null",
+                example = "/models/448567202600123/448567202600123-a5ca257e.usdz")
+        String usdzUrl,
+
         @Schema(description = "체고(m). 표시용 (예: \"실제 크기 · 체고 55cm\"). GLB 에 이미 적용돼 있다", example = "0.546")
         BigDecimal withersM,
 
@@ -30,8 +35,8 @@ public record PetModelView(
     ) {
     }
 
-    public static PetModelView of(PetModel model, String glbUrl) {
-        return new PetModelView(glbUrl, model.getWithersM(), model.getTemplate(),
+    public static PetModelView of(PetModel model, String glbUrl, String usdzUrl) {
+        return new PetModelView(glbUrl, usdzUrl, model.getWithersM(), model.getTemplate(),
                 new Behavior(model.getTapAnimation(), model.getPlaybackRate()));
     }
 }

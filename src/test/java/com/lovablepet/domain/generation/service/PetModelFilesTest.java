@@ -1,5 +1,7 @@
 package com.lovablepet.domain.generation.service;
 
+import com.lovablepet.domain.generation.service.PetModelFiles.Format;
+import com.lovablepet.domain.generation.service.PetModelFiles.ModelFile;
 import com.lovablepet.global.config.PetPipelineProperties;
 import com.lovablepet.global.exception.BusinessException;
 import com.lovablepet.global.exception.ErrorCode;
@@ -17,6 +19,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PetModelFilesTest {
 
+    private static final String DESERTION_NO = "448567202600123";
+    private static final String JOB_ID = "448567202600123-a5ca257e";
+
     @TempDir
     private Path tempDir;
 
@@ -25,8 +30,8 @@ class PetModelFilesTest {
     void saveGlb() throws IOException {
         PetModelFiles files = files();
 
-        String path = files.saveGlb("448567202600123", "448567202600123-a5ca257e", new byte[]{1, 2, 3});
-        files.saveGlb("448567202600123", "448567202600123-a5ca257e", new byte[]{4, 5});
+        String path = files.save(DESERTION_NO, JOB_ID, Format.GLB, new byte[]{1, 2, 3});
+        files.save(DESERTION_NO, JOB_ID, Format.GLB, new byte[]{4, 5});
 
         assertThat(path).isEqualTo("448567202600123/448567202600123-a5ca257e.glb");
         Path saved = tempDir.resolve("models").resolve(path);
@@ -35,14 +40,30 @@ class PetModelFilesTest {
     }
 
     @Test
+    @DisplayName("USDZ 는 GLB 옆에 같은 이름의 .usdz 로 저장한다")
+    void saveUsdz() throws IOException {
+        PetModelFiles files = files();
+
+        files.save(DESERTION_NO, JOB_ID, Format.GLB, new byte[]{1});
+        String path = files.save(DESERTION_NO, JOB_ID, Format.USDZ, new byte[]{'P', 'K'});
+
+        assertThat(path).isEqualTo("448567202600123/448567202600123-a5ca257e.usdz");
+        Path saved = tempDir.resolve("models").resolve(path);
+        assertThat(Files.readAllBytes(saved)).containsExactly('P', 'K');
+        assertThat(Files.list(saved.getParent())).hasSize(2);
+    }
+
+    @Test
     @DisplayName("경로를 벗어나는 이름(../, /, 점)은 거부한다")
     void rejectsUnsafeNames() {
         PetModelFiles files = files();
 
         for (String[] names : new String[][]{{"..", "j1"}, {"1", "../j1"}, {"1/2", "j1"}, {"1", "j1.x"}, {"", "j1"}, {null, "j1"}}) {
-            assertThatThrownBy(() -> files.saveGlb(names[0], names[1], new byte[]{1}))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.GENERATION_INVALID_PET_ID);
+            for (Format format : Format.values()) {
+                assertThatThrownBy(() -> files.save(names[0], names[1], format, new byte[]{1}))
+                        .isInstanceOf(BusinessException.class)
+                        .extracting("errorCode").isEqualTo(ErrorCode.GENERATION_INVALID_PET_ID);
+            }
         }
     }
 
@@ -50,6 +71,7 @@ class PetModelFilesTest {
     @DisplayName("앱에 내려주는 주소: model-base-url + 상대 경로. 저장 전이면 null")
     void publicUrl() {
         assertThat(files().publicUrl("448567202600123/j1.glb")).isEqualTo("/models/448567202600123/j1.glb");
+        assertThat(files().publicUrl("448567202600123/j1.usdz")).isEqualTo("/models/448567202600123/j1.usdz");
         assertThat(files().publicUrl(null)).isNull();
         PetModelFiles cdn = new PetModelFiles(new PetPipelineProperties("http://pipeline:8000", "key", "", "models",
                 Duration.ofSeconds(10), Duration.ofSeconds(90), null, 30, "https://cdn.example.com/models/"));
@@ -57,16 +79,22 @@ class PetModelFilesTest {
     }
 
     @Test
-    @DisplayName("파일 찾기: 저장한 GLB 만 찾고, 없는 파일·.glb 가 아닌 이름·경로를 벗어나는 이름은 empty")
-    void findGlb() {
+    @DisplayName("파일 찾기: 저장한 GLB·USDZ 만 형식과 함께 찾고, 없는 파일·다른 확장자·경로를 벗어나는 이름은 empty")
+    void find() {
         PetModelFiles files = files();
-        files.saveGlb("448567202600123", "448567202600123-a5ca257e", new byte[]{1});
+        files.save(DESERTION_NO, JOB_ID, Format.GLB, new byte[]{1});
+        files.save(DESERTION_NO, JOB_ID, Format.USDZ, new byte[]{2});
 
-        assertThat(files.findGlb("448567202600123", "448567202600123-a5ca257e.glb")).isPresent();
-        assertThat(files.findGlb("448567202600123", "nope.glb")).isEmpty();
-        assertThat(files.findGlb("448567202600123", "448567202600123-a5ca257e.tmp")).isEmpty();
-        assertThat(files.findGlb("..", "448567202600123-a5ca257e.glb")).isEmpty();
-        assertThat(files.findGlb("448567202600123", "..glb")).isEmpty();
+        assertThat(files.find(DESERTION_NO, JOB_ID + ".glb")).get().extracting(ModelFile::format).isEqualTo(Format.GLB);
+        assertThat(files.find(DESERTION_NO, JOB_ID + ".usdz")).get().extracting(ModelFile::format).isEqualTo(Format.USDZ);
+        assertThat(files.find(DESERTION_NO, "nope.glb")).isEmpty();
+        assertThat(files.find(DESERTION_NO, "nope.usdz")).isEmpty();
+        assertThat(files.find(DESERTION_NO, JOB_ID + ".tmp")).isEmpty();
+        assertThat(files.find(DESERTION_NO, JOB_ID)).isEmpty();
+        assertThat(files.find("..", JOB_ID + ".glb")).isEmpty();
+        assertThat(files.find(DESERTION_NO, "..glb")).isEmpty();
+        assertThat(files.find(DESERTION_NO, "..usdz")).isEmpty();
+        assertThat(files.find(DESERTION_NO, ".usdz")).isEmpty();
     }
 
     private PetModelFiles files() {

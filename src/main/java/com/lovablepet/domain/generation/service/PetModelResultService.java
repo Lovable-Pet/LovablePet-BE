@@ -4,6 +4,7 @@ import com.lovablepet.domain.generation.client.PetPipelineClient;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.Job;
 import com.lovablepet.domain.generation.entity.PetModel;
 import com.lovablepet.domain.generation.repository.PetModelRepository;
+import com.lovablepet.domain.generation.service.PetModelFiles.Format;
 import com.lovablepet.domain.pet.entity.Pet;
 import com.lovablepet.domain.pet.repository.PetRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import java.util.Optional;
 public class PetModelResultService {
 
     static final String GLB_FILE = "model.glb";
+    static final String USDZ_FILE = "model.usdz";
 
     private final PetModelRepository petModelRepository;
     private final PetRepository petRepository;
@@ -52,15 +54,21 @@ public class PetModelResultService {
         }
 
         String glbPath = null;
+        String usdzPath = null;
+        boolean usdzMissed = false;
         if ("done".equals(job.status())) {
-            // GLB(약 10MB)는 트랜잭션 밖에서 받는다. 같은 작업이면 같은 경로에 덮어쓰므로 중복으로 받아도 무해하다
+            // 모델 파일(GLB 약 10MB, USDZ 약 5~7MB)은 트랜잭션 밖에서 받는다. 같은 작업이면 같은 경로에 덮어쓰므로 중복으로 받아도 무해하다
             String desertionNo = petRepository.findById(model.getPetId()).map(Pet::getDesertionNo).orElseThrow();
-            glbPath = files.saveGlb(desertionNo, job.jobId(), pipelineClient.download(job.jobId(), GLB_FILE));
+            glbPath = files.save(desertionNo, job.jobId(), Format.GLB, pipelineClient.download(job.jobId(), GLB_FILE));
+            if (job.model() != null && job.model().usdzUrl() != null) {
+                usdzPath = downloadUsdz(desertionNo, job.jobId());
+                usdzMissed = usdzPath == null;
+            }
         }
 
         boolean applied;
         try {
-            applied = writer.finish(model.getId(), job, glbPath, clock.instant());
+            applied = writer.finish(model.getId(), job, glbPath, usdzPath, clock.instant());
         } catch (ObjectOptimisticLockingFailureException e) {
             applied = false;
         }
@@ -68,14 +76,30 @@ public class PetModelResultService {
             log.info("다른 쪽(콜백·작업 확인)에서 먼저 반영했습니다: jobId={}", job.jobId());
             return;
         }
-        log.info("AR 생성 결과 반영: jobId={}, status={}, glb={}", job.jobId(), job.status(), glbPath);
+        log.info("AR 생성 결과 반영: jobId={}, status={}, glb={}, usdz={}", job.jobId(), job.status(), glbPath, usdzPath);
 
-        if (glbPath != null) {
+        // USDZ 를 받지 못했으면 손으로라도 받을 수 있게 파이프라인 파일을 남긴다 (자동으로 다시 받지는 않는다)
+        if (glbPath != null && !usdzMissed) {
             deleteFromPipeline(job.jobId());
         }
     }
 
-    // GLB 를 옮겨 왔으니 파이프라인 쪽 작업 파일은 지운다. 실패한 작업은 원인을 볼 수 있게 남겨 둔다
+    /**
+     * USDZ 는 아이폰 AR 용 덤이라(파이프라인도 변환이 실패하면 GLB 만 내준다) 받지 못해도 GLB 결과는 반영한다. 못 받으면 null.
+     * 저장(디스크) 실패는 GLB 와 같이 예외로 둔다.
+     */
+    private String downloadUsdz(String desertionNo, String jobId) {
+        byte[] usdz;
+        try {
+            usdz = pipelineClient.download(jobId, USDZ_FILE);
+        } catch (RestClientException e) {
+            log.warn("USDZ 를 받지 못해 GLB 만 반영합니다: jobId={}, {}", jobId, e.getClass().getSimpleName());
+            return null;
+        }
+        return files.save(desertionNo, jobId, Format.USDZ, usdz);
+    }
+
+    // 모델 파일을 옮겨 왔으니 파이프라인 쪽 작업 파일은 지운다. 실패한 작업은 원인을 볼 수 있게 남겨 둔다
     private void deleteFromPipeline(String jobId) {
         try {
             pipelineClient.delete(jobId);

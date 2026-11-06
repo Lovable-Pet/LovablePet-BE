@@ -122,7 +122,7 @@ API 주소는 **https://api.lovablepet.tech** 입니다. (프론트: `lovablepet
 | `data/caddy/` | Let's Encrypt 인증서. 지우면 재발급하는데 발급 횟수 제한이 있으니 건드리지 않음 |
 | `.env` | 비밀값. 서버에서만 만들고 커밋하지 않음 (변수 목록: `deploy/.env.example`) |
 | `data/postgres/` | DB 데이터 |
-| `data/storage/` | 업로드 파일 + `models/`(콜백으로 받은 GLB). 소유자 uid 10001 |
+| `data/storage/` | 업로드 파일 + `models/`(콜백으로 받은 GLB와 아이폰 AR용 USDZ). 소유자 uid 10001 |
 
 | 컨테이너 | 내용 |
 |---|---|

@@ -20,16 +20,17 @@ class PetModelTest {
     private static final Fit GOOD = new Fit("good", "적합", 100, List.of(), List.of(), "jindo", "vision", "close", List.of(), "jindo", List.of());
 
     @Test
-    @DisplayName("완성: GLB 경로·체고·탭 동작·적합도·비용을 남기고 DONE")
+    @DisplayName("완성: GLB·USDZ 경로·체고·탭 동작·적합도·비용을 남기고 DONE")
     void complete() {
         PetModel model = reserved();
         Job done = new Job("j1", "1", "done", GOOD, null, new Size(25.7, 0.546, 0.8842, "weight"), null,
                 List.of("idle", "tail_wag"), new Behavior(1.0, "tail_wag", false), null, null, 0.075);
 
-        model.complete(done, "1/j1.glb", FINISHED);
+        model.complete(done, "1/j1.glb", "1/j1.usdz", FINISHED);
 
         assertThat(model.getStatus()).isEqualTo(PetModelStatus.DONE);
         assertThat(model.getGlbPath()).isEqualTo("1/j1.glb");
+        assertThat(model.getUsdzPath()).isEqualTo("1/j1.usdz");
         assertThat(model.getWithersM()).isEqualByComparingTo("0.546");
         assertThat(model.getTapAnimation()).isEqualTo("tail_wag");
         assertThat(model.getPlaybackRate()).isEqualByComparingTo("1.0");
@@ -51,6 +52,7 @@ class PetModelTest {
         assertThat(model.getStatus()).isEqualTo(PetModelStatus.PHOTO_REJECTED);
         assertThat(model.getReasons()).containsExactly("개가 여러 마리");
         assertThat(model.getGlbPath()).isNull();
+        assertThat(model.getUsdzPath()).isNull();
     }
 
     @Test

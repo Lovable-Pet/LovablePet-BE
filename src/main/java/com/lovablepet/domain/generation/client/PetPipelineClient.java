@@ -78,7 +78,7 @@ public class PetPipelineClient {
         return petPipelineRestClient.get().uri("/v1/jobs/{id}", jobId).retrieve().body(Job.class);
     }
 
-    /** model.glb, texture.png 또는 render_side.png / render_face.png / render_body.png */
+    /** model.glb, model.usdz, texture.png 또는 render_side.png / render_face.png / render_body.png */
     public byte[] download(String jobId, String fileName) {
         return petPipelineRestClient.get().uri("/v1/jobs/{id}/files/{name}", jobId, fileName).retrieve().body(byte[].class);
     }
