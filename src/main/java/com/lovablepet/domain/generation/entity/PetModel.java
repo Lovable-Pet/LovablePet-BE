@@ -67,6 +67,7 @@ public class PetModel {
 
     private String error;
     private String glbPath;
+    private String usdzPath;
 
     // 끝 글자가 대문자면 기본 이름 규칙이 withersm 으로 바꾸므로 이름을 적어 준다
     @Column(name = "withers_m", precision = 5, scale = 3)
@@ -111,10 +112,11 @@ public class PetModel {
         return status == PetModelStatus.PENDING;
     }
 
-    /** done: GLB 를 저장한 뒤 부른다. */
-    public void complete(Job job, String glbPath, Instant now) {
+    /** done: GLB(와 있으면 USDZ)를 저장한 뒤 부른다. usdzPath 는 USDZ 가 없으면 null */
+    public void complete(Job job, String glbPath, String usdzPath, Instant now) {
         applyFit(job.fit());
         this.glbPath = glbPath;
+        this.usdzPath = usdzPath;
         if (job.size() != null && job.size().withersM() != null) {
             this.withersM = BigDecimal.valueOf(job.size().withersM());
         }

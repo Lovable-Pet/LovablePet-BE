@@ -122,7 +122,7 @@ API 주소는 **https://api.lovablepet.tech** 입니다. (프론트: `lovablepet
 | `data/caddy/` | Let's Encrypt 인증서. 지우면 재발급하는데 발급 횟수 제한이 있으니 건드리지 않음 |
 | `.env` | 비밀값. 서버에서만 만들고 커밋하지 않음 (변수 목록: `deploy/.env.example`) |
 | `data/postgres/` | DB 데이터 |
-| `data/storage/` | 업로드 파일 + `models/`(콜백으로 받은 GLB). 소유자 uid 10001 |
+| `data/storage/` | 업로드 파일 + `models/`(콜백으로 받은 GLB와 아이폰 AR용 USDZ). 소유자 uid 10001 |
 
 | 컨테이너 | 내용 |
 |---|---|
@@ -157,7 +157,10 @@ API 주소는 **https://api.lovablepet.tech** 입니다. (프론트: `lovablepet
    - 인증서는 첫 배포 때 Caddy가 Let's Encrypt에서 자동으로 받습니다. DNS가 먼저 Elastic IP를 가리키고 있어야 합니다.
      (`dig +short api.lovablepet.tech` 로 확인)
    - `.env`의 `CORS_ALLOWED_ORIGINS`에 프론트 주소(`https://lovablepet.tech,https://www.lovablepet.tech`)를,
-     `KAKAO_REDIRECT_URI`에 `https://api.lovablepet.tech/...` 형태의 주소를 넣고, 카카오 개발자 콘솔에도 같은 Redirect URI와 사이트 도메인을 등록합니다.
+     `KAKAO_REDIRECT_URI`에 프론트의 카카오 콜백 화면 `https://lovablepet.tech/oauth/kakao`를 넣습니다.
+     카카오는 인가 코드를 이 프론트 화면으로 보내고, 프론트가 그 코드를 `POST /api/auth/kakao`로 넘기므로 API 도메인(`api.`)이 아닙니다.
+     카카오 개발자 콘솔의 Redirect URI와 프론트의 `VITE_KAKAO_REDIRECT_URI`도 글자 하나까지 같은 값이어야 하고(다르면 KOE006·KOE303),
+     콘솔에는 사이트 도메인 `https://lovablepet.tech`도 등록합니다.
 
 API 문서(Swagger UI): `https://api.lovablepet.tech/swagger-ui.html`
 (운영에서는 `deploy/docker-compose.yml`의 `SWAGGER_ENABLED`로 켭니다. 로그인·회원가입 응답의 `accessToken`을 오른쪽 위 **Authorize**에 넣으면 인증이 필요한 API도 호출해 볼 수 있습니다)

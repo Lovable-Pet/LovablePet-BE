@@ -67,7 +67,7 @@ services:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError
       SWAGGER_ENABLED: "true"                # API 문서 /swagger-ui.html 공개 (끄려면 이 줄을 지운다)
     volumes:
-      - ./data/storage:/data/storage        # 업로드 파일 + models/(GLB). 폴더 소유자는 uid 10001 (Dockerfile)
+      - ./data/storage:/data/storage        # 업로드 파일 + models/(GLB·USDZ). 폴더 소유자는 uid 10001 (Dockerfile)
     ports:
       - "127.0.0.1:8080:8080"               # 서버 안에서만. 외부는 caddy(443) 로 들어온다
     depends_on:

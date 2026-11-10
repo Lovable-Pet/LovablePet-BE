@@ -48,13 +48,13 @@ public class PetModelWriter {
      * 다른 트랜잭션이 동시에 반영하면 커밋할 때 ObjectOptimisticLockingFailureException(@Version)이 난다.
      */
     @Transactional
-    public boolean finish(Long id, Job job, String glbPath, Instant now) {
+    public boolean finish(Long id, Job job, String glbPath, String usdzPath, Instant now) {
         PetModel model = petModelRepository.findById(id).orElse(null);
         if (model == null || !model.isPending()) {
             return false;
         }
         if ("done".equals(job.status())) {
-            model.complete(job, glbPath, now);
+            model.complete(job, glbPath, usdzPath, now);
         } else {
             model.finishWithoutModel(job, now);
         }

@@ -58,6 +58,8 @@ public final class PetPipelineDtos {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Model(@JsonProperty("glb_url") String glbUrl,
+                        // 아이폰 AR(Quick Look)용 USDZ. 변환이 실패했거나 USDZ 를 만들기 전 버전 파이프라인이면 null
+                        @JsonProperty("usdz_url") String usdzUrl,
                         @JsonProperty("texture_url") String textureUrl,
                         Map<String, String> renders) {
     }

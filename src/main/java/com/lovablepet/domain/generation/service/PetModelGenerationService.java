@@ -122,7 +122,7 @@ public class PetModelGenerationService {
     }
 
     private PetModelResponse toResponse(PetModel model) {
-        return PetModelResponse.from(model, files.publicUrl(model.getGlbPath()));
+        return PetModelResponse.from(model, files.publicUrl(model.getGlbPath()), files.publicUrl(model.getUsdzPath()));
     }
 
     private long todayCount() {
