@@ -28,6 +28,14 @@ public interface PetRepository extends JpaRepository<Pet, Long>, JpaSpecificatio
     @Query("update Pet p set p.listed = false where p.listed = true and p.syncedAt < :syncStartedAt")
     int unlistNotSyncedSince(@Param("syncStartedAt") Instant syncStartedAt);
 
+    /**
+     * 목록에 있는 동물의 기본순(MIXED) 정렬 키를 다시 섞는다. 같은 개들이 계속 위에만 있지 않도록 동기화 때마다 부른다.
+     * 값을 정하는 식은 V11 의 컬럼 기본값과 같다. 벌크 update 라 updated_at 은 바뀌지 않는다.
+     */
+    @Modifying
+    @Query(value = "update pet set sort_key = floor(random() * 2147483647)::integer where listed", nativeQuery = true)
+    int reshuffleSortKeys();
+
     /** 입양 가능한 동물의 시도(관할 지자체 첫 단어)별 마릿수. 예: "경기도 화성시" → "경기도" */
     @Query(value = """
             select split_part(org_name, ' ', 1) as name, count(*) as count
