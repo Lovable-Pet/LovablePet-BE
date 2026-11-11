@@ -54,6 +54,12 @@ public class PetSyncWriter {
         return petRepository.unlistNotSyncedSince(syncStartedAt);
     }
 
+    /** 목록 기본순(MIXED)을 다시 섞는다 */
+    @Transactional
+    public int reshuffleSortKeys() {
+        return petRepository.reshuffleSortKeys();
+    }
+
     /** skipped: 유기번호가 없어 저장하지 못한 수 */
     public record UpsertCount(int created, int updated, int skipped) {
     }

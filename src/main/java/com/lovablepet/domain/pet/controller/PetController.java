@@ -53,8 +53,9 @@ public class PetController {
             @RequestParam(required = false) @DecimalMin("0") BigDecimal maxWeight,
             @Parameter(description = "true: AR 모델이 있는 개만, false: 없는 개만 (관리자가 만들 개 찾기). 비우면 전체")
             @RequestParam(required = false) Boolean hasModel,
-            @Parameter(description = "NEWEST: 최근 공고순, OLDEST: 오래 기다린 순")
-            @RequestParam(defaultValue = "NEWEST") PetSort sort,
+            @Parameter(description = "MIXED: 기본순 (지역·공고일 상관없이 섞은 순서. 같은 날 함께 구조된 형제견이 줄줄이 붙어 나오지 않는다. "
+                    + "동기화 때마다 다시 섞이고, 그 사이에는 페이지를 넘겨도 순서가 같다), NEWEST: 최근 공고순, OLDEST: 오래 기다린 순. 비우면 MIXED")
+            @RequestParam(defaultValue = "MIXED") PetSort sort,
             @Parameter(description = "페이지 (0부터)")
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @Parameter(description = "페이지 크기 (최대 100)")

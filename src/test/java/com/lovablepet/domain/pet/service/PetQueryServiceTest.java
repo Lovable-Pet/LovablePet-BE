@@ -177,6 +177,22 @@ class PetQueryServiceTest {
     }
 
     @Test
+    @DisplayName("목록: 기본순(MIXED)은 섞은 정렬 키 → id 순이고, 정렬을 비워도 기본순")
+    void search_mixedSort() {
+        given(petRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .willAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 0));
+        PetQueryService service = service();
+
+        service.search(new PetSearchCondition(null, null, null, null, null, PetSort.MIXED), 0, 20, null);
+        service.search(new PetSearchCondition(null, null, null, null, null, null), 0, 20, null);
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+        verify(petRepository, times(2)).findAll(any(Specification.class), pageable.capture());
+        Sort mixed = Sort.by(Sort.Order.asc("sortKey"), Sort.Order.asc("id"));
+        assertThat(pageable.getAllValues()).extracting(Pageable::getSort).containsExactly(mixed, mixed);
+    }
+
+    @Test
     @DisplayName("필터 선택지: 시도·품종별 마릿수를 한국 날짜 기준으로 집계해 그대로 내려준다")
     void filterOptions() {
         LocalDate koreanToday = LocalDate.of(2026, 10, 27);
