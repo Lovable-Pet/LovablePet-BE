@@ -43,6 +43,8 @@ import java.util.function.Predicate;
 @Transactional(readOnly = true)
 public class PetQueryService {
 
+    // 정렬 키가 같을 때 id 로 한 번 더 정렬해 페이지를 넘겨도 순서가 고정되게 한다
+    private static final Sort MIXED = Sort.by(Sort.Order.asc("sortKey"), Sort.Order.asc("id"));
     private static final Sort NEWEST = Sort.by(Sort.Order.desc("noticeStart"), Sort.Order.desc("id"));
     private static final Sort OLDEST = Sort.by(Sort.Order.asc("noticeStart"), Sort.Order.asc("id"));
 
@@ -72,7 +74,11 @@ public class PetQueryService {
         if (condition.hasModel() != null) {
             specs.add(PetSpecifications.hasModel(condition.hasModel()));
         }
-        Sort sort = condition.sort() == PetSort.OLDEST ? OLDEST : NEWEST;
+        Sort sort = switch (condition.sort() != null ? condition.sort() : PetSort.MIXED) {
+            case MIXED -> MIXED;
+            case NEWEST -> NEWEST;
+            case OLDEST -> OLDEST;
+        };
 
         Page<Pet> pets = petRepository.findAll(Specification.allOf(specs), PageRequest.of(page, size, sort));
         Set<Long> favoriteIds = favoritePetIds(memberId, pets);

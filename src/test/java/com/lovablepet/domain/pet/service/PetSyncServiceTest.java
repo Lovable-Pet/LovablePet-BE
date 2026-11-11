@@ -126,6 +126,7 @@ class PetSyncServiceTest {
         assertThat(result.updated()).isEqualTo(6);
         assertThat(result.unlisted()).isEqualTo(4);
         verify(client, never()).fetchByState("protect", 3);
+        verify(writer).reshuffleSortKeys();
 
         ArgumentCaptor<PetSyncRun> captor = ArgumentCaptor.forClass(PetSyncRun.class);
         verify(runRepository).save(captor.capture());
@@ -158,6 +159,7 @@ class PetSyncServiceTest {
         service.weeklySync(); // 예외 없이 로그만
 
         verify(writer, never()).unlistNotSyncedSince(any());
+        verify(writer, never()).reshuffleSortKeys();
         verify(runRepository, never()).save(any());
     }
 

@@ -35,6 +35,7 @@ import java.util.function.IntFunction;
  *   <li>공고중·보호중 전체를 받아 유기번호 기준으로 넣거나 덮어쓴다</li>
  *   <li>지난번 이후 수정된 동물을 받는다 (입양·반환 등으로 종료된 동물의 최종 상태)</li>
  *   <li>1에서 받지 못한 동물은 공공데이터 목록에서 빠진 것이므로 목록에서 내린다 (listed = false)</li>
+ *   <li>목록 기본순(MIXED)의 정렬 키를 다시 섞는다</li>
  * </ol>
  * 동기화는 pet 행을 덮어쓰기만 하고 지우지 않는다. pet.id 에 연결된 AR 모델·찜은 그대로 남는다.
  */
@@ -126,6 +127,8 @@ public class PetSyncService {
             fetchAll(pageNo -> client.fetchUpdated(from, to, pageNo), startedAt, tally);
         }
         int unlisted = writer.unlistNotSyncedSince(startedAt);
+        // 기본순(MIXED)에서 같은 개들이 계속 위에만 있지 않도록 동기화 때마다 다시 섞는다
+        writer.reshuffleSortKeys();
 
         Instant finishedAt = clock.instant();
         PetSyncResult result = new PetSyncResult(tally.fetched, tally.created, tally.updated, unlisted, tally.skipped,

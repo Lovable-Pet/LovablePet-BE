@@ -86,6 +86,10 @@ public class Pet {
     @Column(nullable = false)
     private Instant syncedAt;
 
+    // 목록 기본순(MIXED) 정렬 키. DB 가 넣을 때 무작위로 정하고 동기화 때 다시 섞는다 (V11). 엔티티에서는 읽기만 한다
+    @Column(nullable = false, insertable = false, updatable = false)
+    private int sortKey;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
