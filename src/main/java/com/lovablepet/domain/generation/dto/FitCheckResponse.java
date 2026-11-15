@@ -31,11 +31,17 @@ public record FitCheckResponse(
                 example = "[]")
         List<String> photoRejected,
 
-        @Schema(description = "이 사진으로 만들 수 있는지. 사진이 거부되면 false → '다른 사진 선택'으로 안내 (force 로도 못 만든다)", example = "true")
+        @Schema(description = "만들 수 있는지. 사진이 거부됐거나(photoRejected) 맞는 템플릿이 없으면(noTemplate) false 이고 force 로도 못 만든다",
+                example = "true")
         boolean canGenerate,
 
-        @Schema(description = "템플릿 부적합이라 force 로만 만들 수 있는지 (만들어도 그 개처럼 안 보일 수 있다)", example = "false")
+        @Schema(description = "템플릿 부적합이라 force 로만 만들 수 있는지 (만들어도 그 개처럼 안 보일 수 있다). canGenerate 가 false 면 항상 false",
+                example = "false")
         boolean needsForce,
+
+        @Schema(description = "맞는 템플릿이 없는 개인지 (포메형·단두형, 기록 체중 0.5kg 이하 갓난 새끼). true 면 다른 사진으로도 force 로도 "
+                + "만들 수 없다. 사유는 reasons 에 온다. 사진 거부(photoRejected)와 구분해 안내한다", example = "false")
+        boolean noTemplate,
 
         @Schema(description = "예상 체고(m). 표시용 — GLB 가 이미 실제 크기다. 사진이 거부되면 null", example = "0.546")
         Double withersM,
@@ -53,6 +59,8 @@ public record FitCheckResponse(
     public static FitCheckResponse of(FitResult result, BigDecimal weightKg, String photoUrl) {
         Fit fit = result.fit();
         boolean photoRejected = fit != null && fit.isPhotoRejected();
+        boolean noTemplate = fit != null && fit.isNoTemplate();
+        boolean canGenerate = !photoRejected && !noTemplate;
         return new FitCheckResponse(
                 fit == null ? null : fit.level(),
                 fit == null ? null : fit.label(),
@@ -61,8 +69,9 @@ public record FitCheckResponse(
                 fit == null || fit.notes() == null ? List.of() : fit.notes(),
                 fit == null ? null : fit.template(),
                 fit == null || fit.photoRejected() == null ? List.of() : fit.photoRejected(),
-                !photoRejected,
-                !photoRejected && fit != null && fit.isPoor(),
+                canGenerate,
+                canGenerate && fit != null && fit.isPoor(),
+                noTemplate,
                 result.size() == null ? null : result.size().withersM(),
                 weightKg,
                 result.photo() == null ? null : result.photo().level(),

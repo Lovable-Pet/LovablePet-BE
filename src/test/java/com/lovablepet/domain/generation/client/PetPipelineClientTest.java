@@ -108,7 +108,30 @@ class PetPipelineClientTest {
         FitResult result = client(builder, "").fit(RECORD, WEBP);
 
         assertThat(result.fit().isPhotoRejected()).isFalse();
+        assertThat(result.fit().isNoTemplate()).isFalse();
         assertThat(result.size().withersM()).isEqualTo(0.312);
+    }
+
+    @Test
+    @DisplayName("적합도: 맞는 템플릿이 없는 개는 no_template 이 true 로 온다 (갓난 새끼, 포메형·단두형)")
+    void fit_noTemplate() {
+        RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(BASE_URL + "/v1/fit"))
+                .andRespond(withSuccess("""
+                        {"pet_id":"448567202600123",
+                         "fit":{"level":"poor","label":"부적합","score":50,
+                                "reasons":["갓난 새끼(0.18kg): 눈을 뜨기 전의 몸은 어느 모델로도 표현이 안 됨"],
+                                "notes":["템플릿: 진도 강아지 (기록 나이 60일 미만: 성견 모델 대신 강아지 모델)"],
+                                "template":"jindo_puppy","picked_by":"record","match":null,"differences":[],
+                                "looks":"jindo_puppy","no_template":true,"photo_rejected":[]},
+                         "size":{"weight_kg":0.18,"withers_m":0.081,"scale":0.2,"rule":"weight"}}""", MediaType.APPLICATION_JSON));
+
+        FitResult result = client(builder, "").fit(RECORD, WEBP);
+
+        assertThat(result.fit().isNoTemplate()).isTrue();
+        assertThat(result.fit().isPhotoRejected()).isFalse();
+        assertThat(result.fit().pickedBy()).isEqualTo("record");
     }
 
     @Test
