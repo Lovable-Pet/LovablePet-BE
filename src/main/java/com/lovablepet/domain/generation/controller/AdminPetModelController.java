@@ -37,7 +37,10 @@ public class AdminPetModelController {
 
     @Operation(summary = "적합도 확인",
             description = "고른 사진으로 이 개를 만들 수 있는지 미리 본다. 5~20초(배포 직후 첫 호출은 30초 넘게), 약 $0.02.\n\n"
-                    + "- `canGenerate=false`: 사진이 거부됨(사람 손이 가림, 여러 마리 등) → 다른 사진을 고르게 한다. force 로도 못 만든다\n"
+                    + "- `canGenerate=false`: force 로도 못 만든다. 까닭은 둘 중 하나\n"
+                    + "  - `photoRejected` 에 사유 코드가 있음: 사진이 거부됨 → 다른 사진을 고르게 한다\n"
+                    + "  - `noTemplate=true`: 맞는 템플릿이 없는 개(포메형·단두형, 기록 체중 0.5kg 이하 갓난 새끼) → 다른 사진으로도 못 만든다. "
+                    + "사유는 `reasons`\n"
                     + "- `needsForce=true`: 템플릿 부적합 → 만들어도 그 개처럼 안 보일 수 있어 force 로만 만든다\n"
                     + "- 사진이 거부되면 `withersM`·`photoLevel`·`template` 은 null\n\n"
                     + "실패: `PET_404` 없는 동물, `GENERATION_400_WEIGHT` 공고 체중을 알 수 없음(상세의 weightKg 가 null 인 개는 만들 수 없다), `GENERATION_400_PHOTO` 사진 번호 오류, "

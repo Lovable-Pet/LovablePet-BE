@@ -17,7 +17,7 @@ class PetModelTest {
 
     private static final Instant CREATED = Instant.parse("2026-10-29T03:00:00Z");
     private static final Instant FINISHED = Instant.parse("2026-10-29T03:03:00Z");
-    private static final Fit GOOD = new Fit("good", "적합", 100, List.of(), List.of(), "jindo", "vision", "close", List.of(), "jindo", List.of());
+    private static final Fit GOOD = new Fit("good", "적합", 100, List.of(), List.of(), "jindo", "vision", "close", List.of(), "jindo", List.of(), false);
 
     @Test
     @DisplayName("완성: GLB·USDZ 경로·체고·탭 동작·적합도·비용을 남기고 DONE")
@@ -59,7 +59,7 @@ class PetModelTest {
     @DisplayName("템플릿 부적합으로 멈춤: fit.reasons 를 사유로 남긴다")
     void unsuitable() {
         PetModel model = reserved();
-        Fit poor = new Fit("poor", "부적합", 30, List.of("단두형이라 맞는 템플릿이 없음"), List.of(), null, "looks", null, null, "none", List.of());
+        Fit poor = new Fit("poor", "부적합", 30, List.of("단두형이라 맞는 템플릿이 없음"), List.of(), null, "looks", null, null, "none", List.of(), true);
 
         model.finishWithoutModel(new Job("j1", "1", "unsuitable", poor, null, null, null, null, null, null, null, 0.02), FINISHED);
 
