@@ -1,6 +1,7 @@
 package com.lovablepet.domain.generation.service;
 
 import com.lovablepet.domain.generation.client.PetPipelineClient;
+import com.lovablepet.domain.generation.client.PetPipelineDtos.Fit;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.FitResult;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.Job;
 import com.lovablepet.domain.generation.client.PetPipelineDtos.PetRecord;
@@ -35,6 +36,7 @@ import java.util.Optional;
  *   <li>한 번 만든 모델은 계속 쓴다 — 완성 모델이 있으면 다시 만들지 않는다</li>
  *   <li>하루(한국 날짜) 생성 시도 상한 (pet-pipeline.daily-limit). 실패한 시도도 비용이 들어 센다</li>
  *   <li>사진이 거부되면 force 로도 만들 수 없다 (파이프라인 작업도 photo_rejected 로 끝난다)</li>
+ *   <li>맞는 템플릿이 없는 개도 force 로 만들 수 없다 (파이프라인 작업이 fit_stop 과 상관없이 unsuitable 로 끝난다)</li>
  * </ul>
  */
 @Service
@@ -53,14 +55,15 @@ public class PetModelGenerationService {
     private final PetPipelineProperties properties;
     private final Clock clock;
 
-    /** 5~20초, 약 $0.02. 받은 사진과 판정(사진 거부 여부)은 30분 동안 기억해 생성 때 쓴다 */
+    /** 5~20초, 약 $0.02. 받은 사진과 판정(사진 거부·맞는 템플릿 없음)은 30분 동안 기억해 생성 때 쓴다 */
     public FitCheckResponse checkFit(Long petId, FitCheckRequest request) {
         Pet pet = findPet(petId);
         BigDecimal weightKg = weight(pet);
         String photoUrl = photoUrl(pet, request.photoIndex());
 
         FitResult result = pipelineClient.fit(record(pet, weightKg), photoSource.get(photoUrl));
-        photoSource.rememberRejection(photoUrl, result.fit() == null ? List.of() : result.fit().photoRejected());
+        Fit fit = result.fit();
+        photoSource.rememberFit(photoUrl, fit == null ? List.of() : fit.photoRejected(), fit != null && fit.isNoTemplate());
         return FitCheckResponse.of(result, weightKg, photoUrl);
     }
 
@@ -76,6 +79,10 @@ public class PetModelGenerationService {
         String photoUrl = photoUrl(pet, request.photoIndex());
         if (!photoSource.rejection(photoUrl).isEmpty()) {
             throw new GenerationException(ErrorCode.GENERATION_PHOTO_REJECTED);
+        }
+        if (photoSource.noTemplate(photoUrl)) {
+            // 작업을 넣어도 unsuitable 로 끝나고 하루 횟수만 준다
+            throw new GenerationException(ErrorCode.GENERATION_NO_TEMPLATE);
         }
         if (todayCount() >= properties.dailyLimit()) {
             throw new GenerationException(ErrorCode.GENERATION_DAILY_LIMIT,

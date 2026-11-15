@@ -54,7 +54,9 @@ public class AdminPetModelController {
             description = "생성을 등록하고 바로 202 로 답한다. 1.5~4분 뒤 결과가 콜백으로 와서 상태가 바뀐다 "
                     + "(만드는 중 화면에서 `GET /api/admin/pets/{id}/model` 을 몇 초마다 조회). 한 마리 약 $0.075.\n\n"
                     + "실패: `GENERATION_409_EXISTS` 이미 완성 모델이 있음(한 번 만들면 계속 씀), `GENERATION_409_RUNNING` 만드는 중, "
-                    + "`GENERATION_400_PHOTO_REJECTED` 적합도 확인에서 거부된 사진, `GENERATION_400_WEIGHT`, `GENERATION_400_PHOTO`, "
+                    + "`GENERATION_400_PHOTO_REJECTED` 적합도 확인에서 거부된 사진, "
+                    + "`GENERATION_400_NO_TEMPLATE` 적합도 확인에서 맞는 템플릿이 없다고 나온 개(force 로도 못 만든다), "
+                    + "`GENERATION_400_WEIGHT`, `GENERATION_400_PHOTO`, "
                     + "`GENERATION_429_LIMIT` 오늘 생성 횟수를 다 씀, `GENERATION_502_PHOTO`, `EXTERNAL_502`·`EXTERNAL_504` 파이프라인 오류")
     @PostMapping("/pets/{id}/model")
     public ResponseEntity<ApiResponse<PetModelResponse>> generate(

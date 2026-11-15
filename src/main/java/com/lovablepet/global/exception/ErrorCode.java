@@ -48,6 +48,7 @@ public enum ErrorCode {
     GENERATION_WEIGHT_UNKNOWN(HttpStatus.BAD_REQUEST, "GENERATION_400_WEIGHT", "공고 체중을 알 수 없어 실제 크기로 만들 수 없습니다."),
     GENERATION_INVALID_PHOTO(HttpStatus.BAD_REQUEST, "GENERATION_400_PHOTO", "사진 번호가 올바르지 않습니다."),
     GENERATION_PHOTO_REJECTED(HttpStatus.BAD_REQUEST, "GENERATION_400_PHOTO_REJECTED", "적합도 확인에서 거부된 사진입니다. 다른 사진을 골라 주세요."),
+    GENERATION_NO_TEMPLATE(HttpStatus.BAD_REQUEST, "GENERATION_400_NO_TEMPLATE", "적합도 확인에서 맞는 템플릿이 없다고 나온 개입니다. force 로도 만들 수 없습니다."),
     GENERATION_PHOTO_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "GENERATION_502_PHOTO", "사진을 받을 수 없습니다. 다른 사진을 골라 주세요."),
     GENERATION_DAILY_LIMIT(HttpStatus.TOO_MANY_REQUESTS, "GENERATION_429_LIMIT", "오늘 AR 생성 횟수를 다 썼습니다. 내일 다시 시도해 주세요."),
 

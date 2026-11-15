@@ -111,7 +111,7 @@ class PetModelGenerationServiceTest {
         ArgumentCaptor<PetRecord> record = ArgumentCaptor.forClass(PetRecord.class);
         verify(pipelineClient).fit(record.capture(), eq(PHOTO));
         assertThat(record.getValue().weightKg()).isEqualTo(20.5);
-        verify(photoSource).rememberRejection(PHOTO_1, List.of("person_covers"));
+        verify(photoSource).rememberFit(PHOTO_1, List.of("person_covers"), false);
         assertThat(response.canGenerate()).isFalse();
         assertThat(response.needsForce()).isFalse();
         assertThat(response.noTemplate()).isFalse();
@@ -133,6 +133,7 @@ class PetModelGenerationServiceTest {
         assertThat(response.canGenerate()).isFalse();
         assertThat(response.needsForce()).isFalse();
         assertThat(response.noTemplate()).isTrue();
+        verify(photoSource).rememberFit(PHOTO_0, List.of(), true);
         assertThat(response.photoRejected()).isEmpty();
         assertThat(response.reasons()).containsExactly("갓난 새끼(0.18kg): 눈을 뜨기 전의 몸은 어느 모델로도 표현이 안 됨");
     }
@@ -240,7 +241,7 @@ class PetModelGenerationServiceTest {
     }
 
     @Test
-    @DisplayName("생성 막기: 사진 번호가 범위 밖이면 400, 적합도 확인에서 거부된 사진이면 force 여도 400")
+    @DisplayName("생성 막기: 사진 번호가 범위 밖이면 400, 적합도 확인에서 거부된 사진·맞는 템플릿이 없다고 나온 사진이면 force 여도 400")
     void requestGeneration_photoChecks() {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet("Y", "5.5(Kg)")));
         assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(2, false), 3L),
@@ -249,7 +250,12 @@ class PetModelGenerationServiceTest {
         given(photoSource.rejection(PHOTO_1)).willReturn(List.of("several_animals"));
         assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(1, true), 3L),
                 ErrorCode.GENERATION_PHOTO_REJECTED);
+
+        given(photoSource.noTemplate(PHOTO_0)).willReturn(true);
+        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, true), 3L),
+                ErrorCode.GENERATION_NO_TEMPLATE);
         verify(writer, never()).reserve(any());
+        verify(pipelineClient, never()).createJob(any(), any(), anyBoolean());
     }
 
     @Test
