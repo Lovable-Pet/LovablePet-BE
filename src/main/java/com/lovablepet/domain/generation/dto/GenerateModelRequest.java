@@ -11,7 +11,7 @@ public record GenerateModelRequest(
         @Min(value = 0, message = "사진 번호는 0 이상이어야 합니다.")
         Integer photoIndex,
 
-        @Schema(description = "true 면 템플릿 부적합이어도 끝까지 만든다. 사진 거부(photoRejected)는 force 로도 넘을 수 없다. 비우면 false",
+        @Schema(description = "true 면 템플릿 부적합이어도 끝까지 만든다. 사진 거부(photoRejected)와 맞는 템플릿 없음(noTemplate)은 force 로도 넘을 수 없다. 비우면 false",
                 example = "false")
         Boolean force
 ) {

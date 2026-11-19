@@ -122,7 +122,7 @@ class PetQueryServiceTest {
         PetModel done = PetModel.reserve(7L, "https://a/1.jpg", new BigDecimal("12.00"), false, 3L, NOW);
         done.attachJob("413588202600395-a5ca257e");
         done.complete(new Job("413588202600395-a5ca257e", "413588202600395", "done",
-                new Fit("good", "적합", 100, List.of(), List.of(), "jindo", "vision", "close", List.of(), "jindo", List.of()),
+                new Fit("good", "적합", 100, List.of(), List.of(), "jindo", "vision", "close", List.of(), "jindo", List.of(), false),
                 null, new Size(12.0, 0.402, 0.7, "weight"), null, List.of("idle", "tail_wag"),
                 new Behavior(1.0, "tail_wag", false), null, null, 0.075),
                 "413588202600395/413588202600395-a5ca257e.glb", usdzPath, NOW);

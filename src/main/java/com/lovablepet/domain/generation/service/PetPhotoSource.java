@@ -21,7 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>
  * 받은 바이트를 30분 동안 보관해, 적합도 확인과 생성에 바이트가 같은 사진을 넘긴다.
  * 파이프라인은 사진 판정을 24시간 기억하는데 바이트가 같을 때만 다시 쓰기 때문이다.
- * 적합도 확인에서 사진이 거부되면 그 사실도 함께 기억해, 같은 사진으로 생성하려 하면 막는다(force 로도 못 넘는다).
+ * 적합도 확인에서 사진이 거부됐거나 맞는 템플릿이 없다고 나오면 그 사실도 함께 기억해, 같은 사진으로 생성하려 하면 막는다
+ * (force 로도 못 넘는다).
  */
 @Component
 public class PetPhotoSource {
@@ -45,15 +46,16 @@ public class PetPhotoSource {
         }
         PetPhoto photo = PetPhoto.from(download(url)).orElseThrow(() -> new GenerationException(
                 ErrorCode.GENERATION_PHOTO_UNAVAILABLE, "jpeg·png·webp 이고 15MB 이하인 사진만 쓸 수 있습니다. 다른 사진을 골라 주세요."));
-        put(url, new Entry(photo, List.of(), clock.instant()));
+        put(url, new Entry(photo, List.of(), false, clock.instant()));
         return photo;
     }
 
-    /** 적합도 확인 결과의 사진 거부 사유 코드를 기억한다 (통과면 빈 목록) */
-    public void rememberRejection(String url, List<String> photoRejected) {
+    /** 적합도 확인 결과를 기억한다: 사진 거부 사유 코드(통과면 빈 목록)와 맞는 템플릿이 없는지 */
+    public void rememberFit(String url, List<String> photoRejected, boolean noTemplate) {
         Entry entry = fresh(url);
         if (entry != null) {
-            put(url, new Entry(entry.photo(), photoRejected == null ? List.of() : List.copyOf(photoRejected), entry.fetchedAt()));
+            put(url, new Entry(entry.photo(), photoRejected == null ? List.of() : List.copyOf(photoRejected), noTemplate,
+                    entry.fetchedAt()));
         }
     }
 
@@ -61,6 +63,12 @@ public class PetPhotoSource {
     public List<String> rejection(String url) {
         Entry entry = fresh(url);
         return entry == null ? List.of() : entry.photoRejected();
+    }
+
+    /** 30분 안에 이 사진으로 한 적합도 확인에서 맞는 템플릿이 없다고 나왔으면 true */
+    public boolean noTemplate(String url) {
+        Entry entry = fresh(url);
+        return entry != null && entry.noTemplate();
     }
 
     private byte[] download(String url) {
@@ -90,6 +98,6 @@ public class PetPhotoSource {
         entries.put(url, entry);
     }
 
-    private record Entry(PetPhoto photo, List<String> photoRejected, Instant fetchedAt) {
+    private record Entry(PetPhoto photo, List<String> photoRejected, boolean noTemplate, Instant fetchedAt) {
     }
 }

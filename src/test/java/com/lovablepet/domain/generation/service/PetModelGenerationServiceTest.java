@@ -103,7 +103,7 @@ class PetModelGenerationServiceTest {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet("N", "20.5(Kg)")));
         given(photoSource.get(PHOTO_1)).willReturn(PHOTO);
         Fit fit = new Fit("poor", "부적합", null, List.of("사람 손이 털을 가림"), List.of(), null, null, null, null, null,
-                List.of("person_covers"));
+                List.of("person_covers"), false);
         given(pipelineClient.fit(any(), eq(PHOTO))).willReturn(new FitResult("448567202600123", fit, null, null, null));
 
         FitCheckResponse response = service.checkFit(7L, new FitCheckRequest(1));
@@ -111,11 +111,47 @@ class PetModelGenerationServiceTest {
         ArgumentCaptor<PetRecord> record = ArgumentCaptor.forClass(PetRecord.class);
         verify(pipelineClient).fit(record.capture(), eq(PHOTO));
         assertThat(record.getValue().weightKg()).isEqualTo(20.5);
-        verify(photoSource).rememberRejection(PHOTO_1, List.of("person_covers"));
+        verify(photoSource).rememberFit(PHOTO_1, List.of("person_covers"), false);
         assertThat(response.canGenerate()).isFalse();
         assertThat(response.needsForce()).isFalse();
+        assertThat(response.noTemplate()).isFalse();
         assertThat(response.withersM()).isNull();
         assertThat(response.photoLevel()).isNull();
+    }
+
+    @Test
+    @DisplayName("적합도: 맞는 템플릿이 없는 개(갓난 새끼 등)는 부적합이어도 force 대상이 아니다 — canGenerate=false, noTemplate=true")
+    void checkFit_noTemplate() {
+        given(petRepository.findById(7L)).willReturn(Optional.of(pet("N", "0.18(Kg)")));
+        given(photoSource.get(PHOTO_0)).willReturn(PHOTO);
+        Fit fit = new Fit("poor", "부적합", 50, List.of("갓난 새끼(0.18kg): 눈을 뜨기 전의 몸은 어느 모델로도 표현이 안 됨"),
+                List.of("템플릿: 진도 강아지 (생김새 분류)"), "jindo_puppy", "looks", null, List.of(), "jindo_puppy", List.of(), true);
+        given(pipelineClient.fit(any(), eq(PHOTO))).willReturn(new FitResult("448567202600123", fit, null, null, null));
+
+        FitCheckResponse response = service.checkFit(7L, new FitCheckRequest(0));
+
+        assertThat(response.canGenerate()).isFalse();
+        assertThat(response.needsForce()).isFalse();
+        assertThat(response.noTemplate()).isTrue();
+        verify(photoSource).rememberFit(PHOTO_0, List.of(), true);
+        assertThat(response.photoRejected()).isEmpty();
+        assertThat(response.reasons()).containsExactly("갓난 새끼(0.18kg): 눈을 뜨기 전의 몸은 어느 모델로도 표현이 안 됨");
+    }
+
+    @Test
+    @DisplayName("적합도: 템플릿은 있는데 부적합이면 force 로만 만든다. no_template 을 안 보내는 이전 파이프라인도 같다")
+    void checkFit_poorNeedsForce() {
+        given(petRepository.findById(7L)).willReturn(Optional.of(pet("N", "20.5(Kg)")));
+        given(photoSource.get(PHOTO_0)).willReturn(PHOTO);
+        Fit fit = new Fit("poor", "부적합", 40, List.of("단족(코기·닥스훈트형)"), List.of(), "jindo", "vision", "rough",
+                List.of("legs"), "jindo", List.of(), null);
+        given(pipelineClient.fit(any(), eq(PHOTO))).willReturn(new FitResult("448567202600123", fit, null, null, null));
+
+        FitCheckResponse response = service.checkFit(7L, new FitCheckRequest(0));
+
+        assertThat(response.canGenerate()).isTrue();
+        assertThat(response.needsForce()).isTrue();
+        assertThat(response.noTemplate()).isFalse();
     }
 
     @Test
@@ -205,7 +241,7 @@ class PetModelGenerationServiceTest {
     }
 
     @Test
-    @DisplayName("생성 막기: 사진 번호가 범위 밖이면 400, 적합도 확인에서 거부된 사진이면 force 여도 400")
+    @DisplayName("생성 막기: 사진 번호가 범위 밖이면 400, 적합도 확인에서 거부된 사진·맞는 템플릿이 없다고 나온 사진이면 force 여도 400")
     void requestGeneration_photoChecks() {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet("Y", "5.5(Kg)")));
         assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(2, false), 3L),
@@ -214,7 +250,12 @@ class PetModelGenerationServiceTest {
         given(photoSource.rejection(PHOTO_1)).willReturn(List.of("several_animals"));
         assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(1, true), 3L),
                 ErrorCode.GENERATION_PHOTO_REJECTED);
+
+        given(photoSource.noTemplate(PHOTO_0)).willReturn(true);
+        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, true), 3L),
+                ErrorCode.GENERATION_NO_TEMPLATE);
         verify(writer, never()).reserve(any());
+        verify(pipelineClient, never()).createJob(any(), any(), anyBoolean());
     }
 
     @Test

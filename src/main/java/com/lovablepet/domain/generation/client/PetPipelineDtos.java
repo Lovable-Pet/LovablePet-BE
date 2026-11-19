@@ -32,13 +32,17 @@ public final class PetPipelineDtos {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Fit(String level, String label, Integer score, List<String> reasons, List<String> notes,
                       String template,                                // 만들 모델: jindo, jindo_puppy, maltese, ...
-                      @JsonProperty("picked_by") String pickedBy,     // "vision"(사진과 회색 모델 비교) 또는 "looks"
+                      // "vision"(사진과 회색 모델 비교), "looks"(생김새 분류), "record"(기록 나이 60일 미만이라 강아지 모델)
+                      @JsonProperty("picked_by") String pickedBy,
                       String match,                                   // close | rough | poor ("vision"일 때)
                       List<String> differences,                       // 모델과 다른 부위: ears, muzzle, ...
                       String looks,                                   // DINOv2 생김새. "none"이면 맞는 템플릿 없음
                       // 사진 거부 사유 코드: person_covers, several_animals, text_on_animal, clothing, object_covers, not_a_dog.
                       // 통과하면 []. 사진 판정이 없던 이전 버전 파이프라인은 이 필드를 보내지 않는다(null)
-                      @JsonProperty("photo_rejected") List<String> photoRejected) {
+                      @JsonProperty("photo_rejected") List<String> photoRejected,
+                      // 맞는 템플릿이 없는 개(포메형·단두형, 기록 체중 0.5kg 이하 갓난 새끼). 사유는 reasons 에 한국어로 온다.
+                      // 이전 버전 파이프라인은 이 필드를 보내지 않는다(null)
+                      @JsonProperty("no_template") Boolean noTemplate) {
         public boolean isPoor() {
             return "poor".equals(level);
         }
@@ -46,6 +50,11 @@ public final class PetPipelineDtos {
         /** 사진이 못 쓰는 사진이면 true. 이때는 force 로도 만들 수 없다(작업도 photo_rejected 로 끝난다) */
         public boolean isPhotoRejected() {
             return photoRejected != null && !photoRejected.isEmpty();
+        }
+
+        /** 맞는 템플릿이 없으면 true. 이때는 force 로도 만들 수 없다(작업이 fit_stop 과 상관없이 unsuitable 로 끝난다) */
+        public boolean isNoTemplate() {
+            return Boolean.TRUE.equals(noTemplate);
         }
     }
 

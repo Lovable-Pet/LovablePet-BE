@@ -59,12 +59,33 @@ class PetPhotoSourceTest {
         PetPhotoSource source = new PetPhotoSource(builder.build(), clock);
 
         source.get(URL);
-        source.rememberRejection(URL, List.of("person_covers"));
+        source.rememberFit(URL, List.of("person_covers"), false);
         assertThat(source.rejection(URL)).containsExactly("person_covers");
+        assertThat(source.noTemplate(URL)).isFalse();
 
         clock.advance(Duration.ofMinutes(31));
         assertThat(source.rejection(URL)).isEmpty();
         source.get(URL); // 기한이 지나 다시 받는다
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("적합도 확인에서 맞는 템플릿이 없다고 나온 사진도 30분 동안 기억하고, 지나면 잊는다. 확인한 적 없는 사진은 false")
+    void remembersNoTemplate() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(ExpectedCount.once(), requestTo(URL))
+                .andRespond(withSuccess(JPEG, MediaType.APPLICATION_OCTET_STREAM));
+        PetPhotoSource source = new PetPhotoSource(builder.build(), clock);
+
+        assertThat(source.noTemplate(URL)).isFalse();
+        source.get(URL);
+        source.rememberFit(URL, List.of(), true);
+        assertThat(source.noTemplate(URL)).isTrue();
+        assertThat(source.rejection(URL)).isEmpty();
+
+        clock.advance(Duration.ofMinutes(31));
+        assertThat(source.noTemplate(URL)).isFalse();
         server.verify();
     }
 

@@ -37,7 +37,10 @@ public class AdminPetModelController {
 
     @Operation(summary = "적합도 확인",
             description = "고른 사진으로 이 개를 만들 수 있는지 미리 본다. 5~20초(배포 직후 첫 호출은 30초 넘게), 약 $0.02.\n\n"
-                    + "- `canGenerate=false`: 사진이 거부됨(사람 손이 가림, 여러 마리 등) → 다른 사진을 고르게 한다. force 로도 못 만든다\n"
+                    + "- `canGenerate=false`: force 로도 못 만든다. 까닭은 둘 중 하나\n"
+                    + "  - `photoRejected` 에 사유 코드가 있음: 사진이 거부됨 → 다른 사진을 고르게 한다\n"
+                    + "  - `noTemplate=true`: 맞는 템플릿이 없는 개(포메형·단두형, 기록 체중 0.5kg 이하 갓난 새끼) → 다른 사진으로도 못 만든다. "
+                    + "사유는 `reasons`\n"
                     + "- `needsForce=true`: 템플릿 부적합 → 만들어도 그 개처럼 안 보일 수 있어 force 로만 만든다\n"
                     + "- 사진이 거부되면 `withersM`·`photoLevel`·`template` 은 null\n\n"
                     + "실패: `PET_404` 없는 동물, `GENERATION_400_WEIGHT` 공고 체중을 알 수 없음(상세의 weightKg 가 null 인 개는 만들 수 없다), `GENERATION_400_PHOTO` 사진 번호 오류, "
@@ -51,7 +54,9 @@ public class AdminPetModelController {
             description = "생성을 등록하고 바로 202 로 답한다. 1.5~4분 뒤 결과가 콜백으로 와서 상태가 바뀐다 "
                     + "(만드는 중 화면에서 `GET /api/admin/pets/{id}/model` 을 몇 초마다 조회). 한 마리 약 $0.075.\n\n"
                     + "실패: `GENERATION_409_EXISTS` 이미 완성 모델이 있음(한 번 만들면 계속 씀), `GENERATION_409_RUNNING` 만드는 중, "
-                    + "`GENERATION_400_PHOTO_REJECTED` 적합도 확인에서 거부된 사진, `GENERATION_400_WEIGHT`, `GENERATION_400_PHOTO`, "
+                    + "`GENERATION_400_PHOTO_REJECTED` 적합도 확인에서 거부된 사진, "
+                    + "`GENERATION_400_NO_TEMPLATE` 적합도 확인에서 맞는 템플릿이 없다고 나온 개(force 로도 못 만든다), "
+                    + "`GENERATION_400_WEIGHT`, `GENERATION_400_PHOTO`, "
                     + "`GENERATION_429_LIMIT` 오늘 생성 횟수를 다 씀, `GENERATION_502_PHOTO`, `EXTERNAL_502`·`EXTERNAL_504` 파이프라인 오류")
     @PostMapping("/pets/{id}/model")
     public ResponseEntity<ApiResponse<PetModelResponse>> generate(
