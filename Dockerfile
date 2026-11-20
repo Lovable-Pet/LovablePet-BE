@@ -27,7 +27,9 @@ RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app 
 ENV PLAYWRIGHT_DRIVER_DIR=/opt/playwright-driver \
     PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 COPY --from=build /workspace/build/playwright-driver /opt/playwright-driver
-RUN chmod +x /opt/playwright-driver/node \
+# 드라이버의 node 는 libatomic1 이 있어야 실행된다 (기본 이미지에 없음)
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+    && chmod +x /opt/playwright-driver/node \
     && /opt/playwright-driver/node /opt/playwright-driver/package/cli.js install --with-deps --only-shell chromium \
     && rm -rf /var/lib/apt/lists/*
 
