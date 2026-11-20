@@ -68,6 +68,7 @@ public class PetModel {
     private String error;
     private String glbPath;
     private String usdzPath;
+    private String previewPath;
 
     // 끝 글자가 대문자면 기본 이름 규칙이 withersm 으로 바꾸므로 이름을 적어 준다
     @Column(name = "withers_m", precision = 5, scale = 3)
@@ -125,6 +126,13 @@ public class PetModel {
             this.playbackRate = job.behavior().playbackRate() == null ? null : BigDecimal.valueOf(job.behavior().playbackRate());
         }
         finish(PetModelStatus.DONE, job, now);
+    }
+
+    /** 미리보기 그림을 찍어 저장한 뒤 부른다. 다시 찍었으면 지워도 되는 이전 그림의 경로를, 처음이면 null 을 돌려준다 */
+    public String attachPreview(String previewPath) {
+        String previous = this.previewPath;
+        this.previewPath = previewPath;
+        return previous;
     }
 
     /** photo_rejected · unsuitable · failed */

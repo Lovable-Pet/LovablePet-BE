@@ -16,6 +16,7 @@
 | Migration | Flyway |
 | API 문서 | springdoc-openapi 3.x (Swagger UI) |
 | 외부 연동 | Python AI 서버 (3D 생성) — Spring `RestClient` |
+| AR 미리보기 그림 | Playwright(Java) + 화면 없는 크롬 + model-viewer 4.1.0 (`resources/preview/`) |
 | Infra | Docker, Docker Compose, GitHub Actions |
 
 
@@ -122,13 +123,26 @@ API 주소는 **https://api.lovablepet.tech** 입니다. (프론트: `lovablepet
 | `data/caddy/` | Let's Encrypt 인증서. 지우면 재발급하는데 발급 횟수 제한이 있으니 건드리지 않음 |
 | `.env` | 비밀값. 서버에서만 만들고 커밋하지 않음 (변수 목록: `deploy/.env.example`) |
 | `data/postgres/` | DB 데이터 |
-| `data/storage/` | 업로드 파일 + `models/`(콜백으로 받은 GLB와 아이폰 AR용 USDZ). 소유자 uid 10001 |
+| `data/storage/` | 업로드 파일 + `models/`(콜백으로 받은 GLB와 아이폰 AR용 USDZ, 서버가 찍은 미리보기 그림 WebP). 소유자 uid 10001 |
 
 | 컨테이너 | 내용 |
 |---|---|
 | `caddy` | 80·443 공개. HTTPS 종단(인증서 자동 발급·갱신) 후 `spring:8080`으로 전달. 네트워크 `lovablepet` |
-| `spring` | 8080은 서버 안(127.0.0.1)에서만 열림(배포 헬스체크용). 네트워크 `lovablepet`(파이프라인과 공유)·`db`. 메모리 상한 1.5 GB (힙은 그 70%) |
+| `spring` | 8080은 서버 안(127.0.0.1)에서만 열림(배포 헬스체크용). 네트워크 `lovablepet`(파이프라인과 공유)·`db`. 메모리 상한 2.5 GB (힙은 그 50%, 나머지는 미리보기 그림을 찍는 크롬 몫) |
 | `lovablepet-postgres` | `pgvector/pgvector:pg16`. 내부 네트워크 `db`에만 붙고 포트를 열지 않음. 메모리 상한 1 GB |
+
+AR 미리보기 그림 (동물 상세의 `model.previewUrl`):
+
+- 모델이 완성되면(콜백) Spring이 같은 컨테이너의 화면 없는 크롬에 프론트 상세 화면과 같은 model-viewer·카메라를 띄워
+  1200x930 투명 배경 WebP(40~100KB)를 찍고 GLB 옆(`{유기번호}/{jobId}-preview-{해시}.webp`)에 저장합니다. 한 장에 수 초~십수 초, 한 번에 한 장씩 뒤에서 찍습니다.
+- 서버가 뜰 때마다 그림이 없는 완성 모델을 자동으로 채웁니다. 프론트의 3D 화면 설정(`ModelPreview.tsx`)을 바꿨다면
+  `src/main/resources/preview/index.html`도 같이 바꾸고 `POST /api/admin/pet-models/previews?all=true`로 다시 찍습니다.
+- 크롬과 Playwright 드라이버는 도커 이미지를 만들 때 깝니다(`Dockerfile`). 실행 중에는 내려받지 않습니다.
+- 로컬에서 찍어 보려면 크롬을 한 번 깔고, GLB 하나로 시험을 돌립니다 (크롬이 없으면 그림만 안 생기고 나머지는 그대로 동작):
+  ```
+  ./gradlew playwrightInstall
+  PREVIEW_GLB=/경로/model.glb ./gradlew test --tests '*PetModelPreviewRendererTest'   # build/preview-test.webp
+  ```
 
 파이프라인 연동: Spring은 `http://pipeline:8000`을 부르고, 파이프라인은 `http://spring:8080/internal/pet-models/callback`으로 결과를 보냅니다.
 같은 docker 네트워크라 공개 주소가 필요 없습니다. `PET_PIPELINE_API_KEY`는 `~/lovablepet-ai/.env`의 `PIPELINE_API_KEY`와 같은 값이고,

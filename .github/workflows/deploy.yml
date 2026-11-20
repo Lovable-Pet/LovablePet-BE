@@ -73,6 +73,7 @@ jobs:
           # Swagger 문서가 만들어지는지, 앱이 부르지 않는 내부 콜백은 문서에서 빠졌는지
           curl -fsS localhost:8080/v3/api-docs -o "$RUNNER_TEMP/api-docs.json"
           grep -q '"/api/auth/login"' "$RUNNER_TEMP/api-docs.json"
+          grep -q '"previewUrl"' "$RUNNER_TEMP/api-docs.json"   # 동물 상세 model 의 미리보기 그림 주소
           if grep -q '/internal/' "$RUNNER_TEMP/api-docs.json"; then
             echo "내부 콜백 경로가 Swagger 문서에 노출됐다"; exit 1
           fi
@@ -102,6 +103,17 @@ jobs:
           # GLB·USDZ 파일 주소는 로그인 없이 열린다 (없는 파일이라 401 이 아니라 404)
           [ "$(curl -sS -o /dev/null -w '%{http_code}' localhost:8080/models/0/none.glb)" = 404 ]
           [ "$(curl -sS -o /dev/null -w '%{http_code}' localhost:8080/models/0/none.usdz)" = 404 ]
+          [ "$(curl -sS -o /dev/null -w '%{http_code}' localhost:8080/models/0/none-preview-00000000.webp)" = 404 ]
+          # AR 미리보기 그림: 이미지 안의 화면 없는 크롬이 뜨고 WebGL(GPU 없이 SwiftShader)이 되는지 (PetModelPreviewRenderer 와 같은 옵션)
+          docker exec smoke /opt/playwright-driver/node -e "
+            const { chromium } = require('/opt/playwright-driver/package');
+            (async () => {
+              const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-dev-shm-usage'] });
+              const page = await browser.newPage();
+              const webgl = await page.evaluate(() => !!document.createElement('canvas').getContext('webgl2'));
+              await browser.close();
+              if (!webgl) throw new Error('WebGL 을 쓸 수 없습니다');
+            })().catch((error) => { console.error(error); process.exit(1); });"
 
           # 찜: 로그인 없이는 COMMON_401, 없는 동물은 PET_404. 동물을 하나 넣고 찜하기 → 목록 → 취소가 한 바퀴 돈다
           curl -sS -X PUT localhost:8080/api/members/me/favorites/1 | grep -q '"COMMON_401"'

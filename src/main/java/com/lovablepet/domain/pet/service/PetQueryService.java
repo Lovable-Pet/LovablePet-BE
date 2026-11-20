@@ -98,7 +98,8 @@ public class PetQueryService {
     public PetDetailResponse get(Long id, Long memberId) {
         Pet pet = petRepository.findById(id).orElseThrow(() -> new PetException(ErrorCode.PET_NOT_FOUND));
         PetModelView model = petModelRepository.findByPetIdAndStatus(id, PetModelStatus.DONE)
-                .map(done -> PetModelView.of(done, modelFiles.publicUrl(done.getGlbPath()), modelFiles.publicUrl(done.getUsdzPath())))
+                .map(done -> PetModelView.of(done, modelFiles.publicUrl(done.getGlbPath()), modelFiles.publicUrl(done.getUsdzPath()),
+                        modelFiles.publicUrl(done.getPreviewPath())))
                 .orElse(null);
         boolean favorited = memberId != null && favoriteRepository.existsByMemberIdAndPetId(memberId, id);
         return PetDetailResponse.of(pet, today(), model, favorited);

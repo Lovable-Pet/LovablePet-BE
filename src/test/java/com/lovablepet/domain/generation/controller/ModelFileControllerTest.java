@@ -56,6 +56,20 @@ class ModelFileControllerTest {
     }
 
     @Test
+    @DisplayName("미리보기 그림을 image/webp 로, 1년 캐시(immutable)로 내려준다")
+    void servesPreview() throws Exception {
+        PetModelFiles files = files();
+        String path = files.savePreview(DESERTION_NO, JOB_ID, new byte[]{'R', 'I', 'F', 'F'});
+
+        ResponseEntity<Resource> response = new ModelFileController(files).file(DESERTION_NO, path.substring(DESERTION_NO.length() + 1));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.valueOf("image/webp"));
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).contains("max-age=31536000").contains("immutable");
+        assertThat(response.getBody().getContentAsByteArray()).containsExactly('R', 'I', 'F', 'F');
+    }
+
+    @Test
     @DisplayName("없는 파일은 COMMON_404 (GLB 만 있는 옛 모델의 .usdz 도)")
     void missing() {
         PetModelFiles files = files();

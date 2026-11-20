@@ -5,8 +5,10 @@ import com.lovablepet.domain.generation.dto.FitCheckResponse;
 import com.lovablepet.domain.generation.dto.GenerateModelRequest;
 import com.lovablepet.domain.generation.dto.PetModelListResponse;
 import com.lovablepet.domain.generation.dto.PetModelResponse;
+import com.lovablepet.domain.generation.dto.PreviewBatchResponse;
 import com.lovablepet.domain.generation.entity.PetModelStatus;
 import com.lovablepet.domain.generation.service.PetModelGenerationService;
+import com.lovablepet.domain.generation.service.PetModelPreviewService;
 import com.lovablepet.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminPetModelController {
 
     private final PetModelGenerationService generationService;
+    private final PetModelPreviewService previewService;
 
     @Operation(summary = "적합도 확인",
             description = "고른 사진으로 이 개를 만들 수 있는지 미리 본다. 5~20초(배포 직후 첫 호출은 30초 넘게), 약 $0.02.\n\n"
@@ -79,5 +82,19 @@ public class AdminPetModelController {
             @Parameter(description = "상태로 거르기 (비우면 전체)")
             @RequestParam(required = false) PetModelStatus status) {
         return ApiResponse.ok(generationService.list(status));
+    }
+
+    @Operation(summary = "미리보기 그림 일괄 생성",
+            description = "완성된 AR 모델의 미리보기 그림(동물 상세의 `model.previewUrl`)을 뒤에서 차례로 찍고 바로 202 로 답한다. "
+                    + "한 장에 수 초~십수 초. 새로 완성되는 모델은 자동으로 찍고, 서버가 뜰 때도 그림이 없는 모델을 자동으로 채우므로 "
+                    + "평소에는 부를 일이 없다.\n\n"
+                    + "- `all=false`(기본): 그림이 없는 모델만\n"
+                    + "- `all=true`: 이미 있는 모델도 다시 찍는다 (프론트 3D 화면의 카메라·그림자 설정을 바꿨을 때). 다시 찍으면 주소가 바뀐다")
+    @PostMapping("/pet-models/previews")
+    public ResponseEntity<ApiResponse<PreviewBatchResponse>> createPreviews(
+            @Parameter(description = "true 면 이미 그림이 있는 모델도 다시 찍는다")
+            @RequestParam(defaultValue = "false") boolean all) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.ok(new PreviewBatchResponse(previewService.requestAll(all))));
     }
 }
