@@ -32,7 +32,7 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class PetModelJobChecker {
 
-    /** 이만큼 지나도 만드는 중이면 물어본다 (한 마리 1.5~4분) */
+    /** 이만큼 지나도 만드는 중이면 물어본다 (한 마리 1~4분) */
     static final Duration CHECK_AFTER = Duration.ofMinutes(10);
     /** 파이프라인은 한 번에 한 마리씩 만들고 나머지는 줄을 서므로 넉넉하게 둔다 */
     static final Duration GIVE_UP_AFTER = Duration.ofHours(6);

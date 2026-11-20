@@ -56,7 +56,7 @@ public class PetPipelineClient {
     }
 
     /**
-     * 모델 생성을 등록한다(1.5~4분). 바로 status "queued"로 돌아오고, 결과는 콜백으로 온다.
+     * 모델 생성을 등록한다(1~4분). 바로 status "queued"로 돌아오고, 결과는 콜백으로 온다.
      * fitStop 이면 템플릿 부적합일 때 비싼 단계 전에 멈추고 unsuitable 로 끝난다. 사진 거부(photo_rejected)는 fitStop 과 상관없다.
      */
     public Job createJob(PetRecord record, PetPhoto photo, boolean fitStop) {

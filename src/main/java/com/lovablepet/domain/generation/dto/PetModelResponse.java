@@ -63,7 +63,7 @@ public record PetModelResponse(
         @Schema(description = "애니메이션 재생 속도", example = "1.0")
         BigDecimal playbackRate,
 
-        @Schema(description = "비용(USD)", example = "0.075")
+        @Schema(description = "비용(USD)", example = "0.006")
         BigDecimal costUsd,
 
         Instant createdAt,
