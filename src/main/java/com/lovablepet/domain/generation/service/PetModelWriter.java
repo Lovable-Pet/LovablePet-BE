@@ -61,6 +61,13 @@ public class PetModelWriter {
         return true;
     }
 
+    /** 완성 모델에 미리보기 그림 경로를 붙인다. 다시 찍었으면 이전 그림 경로를 돌려준다 (없으면 null) */
+    @Transactional
+    public String attachPreview(Long id, String previewPath) {
+        PetModel model = petModelRepository.findById(id).orElseThrow();
+        return model.attachPreview(previewPath);
+    }
+
     /** 파이프라인에서 결과를 받을 수 없을 때 FAILED 로. 만드는 중이 아니면 false */
     @Transactional
     public boolean fail(Long id, String error, Instant now) {

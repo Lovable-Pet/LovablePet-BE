@@ -16,6 +16,13 @@ public record PetModelView(
                 example = "/models/448567202600123/448567202600123-a5ca257e.usdz")
         String usdzUrl,
 
+        @Schema(description = "미리보기 그림 주소 (glbUrl 과 같은 기준의 경로). 상세 화면 3D 와 같은 카메라(camera-orbit 35deg 78deg 105%)·대기 자세 첫 프레임·"
+                + "바닥 그림자로 찍은 1200x930 투명 배경 WebP(100KB 안팎)라, 카드를 뒤집자마자 보여 주고 GLB 를 다 받으면 3D 로 바꾸면 된다. "
+                + "모델이 완성된 뒤 몇 초~몇십 초 뒤에 생기므로 그 전이거나 찍지 못했으면 null (GLB 를 직접 그린다). "
+                + "다시 찍으면 주소가 바뀐다",
+                example = "/models/448567202600123/448567202600123-a5ca257e-preview-1f2e3d4c.webp")
+        String previewUrl,
+
         @Schema(description = "체고(m). 표시용 (예: \"실제 크기 · 체고 55cm\"). GLB 에 이미 적용돼 있다", example = "0.546")
         BigDecimal withersM,
 
@@ -35,8 +42,8 @@ public record PetModelView(
     ) {
     }
 
-    public static PetModelView of(PetModel model, String glbUrl, String usdzUrl) {
-        return new PetModelView(glbUrl, usdzUrl, model.getWithersM(), model.getTemplate(),
+    public static PetModelView of(PetModel model, String glbUrl, String usdzUrl, String previewUrl) {
+        return new PetModelView(glbUrl, usdzUrl, previewUrl, model.getWithersM(), model.getTemplate(),
                 new Behavior(model.getTapAnimation(), model.getPlaybackRate()));
     }
 }

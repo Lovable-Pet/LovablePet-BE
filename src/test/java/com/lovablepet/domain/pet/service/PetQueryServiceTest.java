@@ -90,16 +90,18 @@ class PetQueryServiceTest {
     }
 
     @Test
-    @DisplayName("상세: 완성된 AR 모델이 있으면 glbUrl·usdzUrl·체고·탭 동작을 내려준다")
+    @DisplayName("상세: 완성된 AR 모델이 있으면 glbUrl·usdzUrl·previewUrl·체고·탭 동작을 내려준다")
     void get_withModel() throws IOException {
         given(petRepository.findById(7L)).willReturn(Optional.of(fixturePet("413588202600395")));
         PetModel done = doneModel("413588202600395/413588202600395-a5ca257e.usdz");
+        done.attachPreview("413588202600395/413588202600395-a5ca257e-preview-1f2e3d4c.webp");
         given(petModelRepository.findByPetIdAndStatus(7L, PetModelStatus.DONE)).willReturn(Optional.of(done));
 
         PetModelView model = service().get(7L, null).model();
 
         assertThat(model.glbUrl()).isEqualTo("/models/413588202600395/413588202600395-a5ca257e.glb");
         assertThat(model.usdzUrl()).isEqualTo("/models/413588202600395/413588202600395-a5ca257e.usdz");
+        assertThat(model.previewUrl()).isEqualTo("/models/413588202600395/413588202600395-a5ca257e-preview-1f2e3d4c.webp");
         assertThat(model.withersM()).isEqualByComparingTo("0.402");
         assertThat(model.template()).isEqualTo("jindo");
         assertThat(model.behavior().tapAnimation()).isEqualTo("tail_wag");
@@ -107,7 +109,7 @@ class PetQueryServiceTest {
     }
 
     @Test
-    @DisplayName("상세: USDZ 가 없는 모델(변환 실패·USDZ 이전 모델)은 glbUrl 만 있고 usdzUrl 은 null")
+    @DisplayName("상세: USDZ·미리보기 그림이 없는 모델(변환 실패·찍기 전)은 glbUrl 만 있고 usdzUrl·previewUrl 은 null")
     void get_withModelWithoutUsdz() throws IOException {
         given(petRepository.findById(7L)).willReturn(Optional.of(fixturePet("413588202600395")));
         given(petModelRepository.findByPetIdAndStatus(7L, PetModelStatus.DONE)).willReturn(Optional.of(doneModel(null)));
@@ -116,6 +118,7 @@ class PetQueryServiceTest {
 
         assertThat(model.glbUrl()).isEqualTo("/models/413588202600395/413588202600395-a5ca257e.glb");
         assertThat(model.usdzUrl()).isNull();
+        assertThat(model.previewUrl()).isNull();
     }
 
     private static PetModel doneModel(String usdzPath) {

@@ -35,6 +35,7 @@ public class PetModelResultService {
     private final PetModelWriter writer;
     private final PetPipelineClient pipelineClient;
     private final PetModelFiles files;
+    private final PetModelPreviewService previewService;
     private final Clock clock;
 
     public void apply(Job job) {
@@ -77,6 +78,11 @@ public class PetModelResultService {
             return;
         }
         log.info("AR 생성 결과 반영: jobId={}, status={}, glb={}, usdz={}", job.jobId(), job.status(), glbPath, usdzPath);
+
+        // 상세 화면에서 바로 보여 줄 미리보기 그림은 뒤에서 따로 찍는다 (몇 초 걸려 콜백 응답을 기다리게 하지 않는다)
+        if (glbPath != null) {
+            previewService.request(model.getId());
+        }
 
         // USDZ 를 받지 못했으면 손으로라도 받을 수 있게 파이프라인 파일을 남긴다 (자동으로 다시 받지는 않는다)
         if (glbPath != null && !usdzMissed) {
