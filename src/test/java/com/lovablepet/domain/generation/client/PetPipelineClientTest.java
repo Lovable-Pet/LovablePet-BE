@@ -25,7 +25,7 @@ class PetPipelineClientTest {
 
     private static final String BASE_URL = "http://pipeline:8000";
     private static final PetRecord RECORD = new PetRecord("448567202600123", "개", 5.5, "갈색&흰색",
-            "믹스견 · 경기도 화성시 · 5.5kg", "F", false, "2024(년생)");
+            "믹스견 · 경기도 화성시 · 5.5kg", "F", false, "2024(년생)", "믹스견");
     private static final PetPhoto WEBP = PetPhoto.from("RIFF\0\0\0\0WEBPVP8 ".getBytes(StandardCharsets.ISO_8859_1)).orElseThrow();
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
@@ -45,6 +45,7 @@ class PetPipelineClientTest {
                             .contains("filename=\"photo.webp\"")
                             .contains("\"pet_id\":\"448567202600123\"")
                             .contains("\"neutered\":false")
+                            .contains("\"breed\":\"믹스견\"")
                             .containsPattern("name=\"fit_stop\"[\\s\\S]*?true")
                             .containsPattern("name=\"callback_url\"[\\s\\S]*?http://spring:8080/internal/pet-models/callback")
                             .containsPattern("name=\"scripted\"[\\s\\S]*?black_shiba");

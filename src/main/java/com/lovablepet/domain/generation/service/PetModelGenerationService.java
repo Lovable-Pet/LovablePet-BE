@@ -125,7 +125,8 @@ public class PetModelGenerationService {
                 pet.displayName(),
                 nullToEmpty(pet.getSex()),
                 "Y".equals(pet.getNeutered()), // 파이프라인은 true/false 만 받는다: Y → true, N·U(미상) → false
-                nullToEmpty(pet.getAgeText()));
+                nullToEmpty(pet.getAgeText()),
+                pet.getKindName()); // 공고 kindNm 그대로(예: "믹스견"). 없으면 null → 파이프라인은 예전처럼 템플릿 견종 기준
     }
 
     private PetModelResponse toResponse(PetModel model) {
