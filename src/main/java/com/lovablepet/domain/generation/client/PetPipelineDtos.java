@@ -23,7 +23,16 @@ public final class PetPipelineDtos {
             @JsonProperty("name") String name,
             @JsonProperty("sex") String sex,
             @JsonProperty("neutered") boolean neutered,
-            @JsonProperty("age_text") String ageText) {    // 예: "2022(년생)", "2026(60일미만)(년생)"
+            @JsonProperty("age_text") String ageText,      // 예: "2022(년생)", "2026(60일미만)(년생)"
+            // APMS 품종 그대로, 예: "믹스견", "[개] 도사 믹스견". 모르면 null.
+            // "믹스"가 들어 있으면 체고를 믹스 기준으로 낸다(size.rule "mix"). 템플릿은 여전히 사진으로 고른다
+            @JsonProperty("breed") String breed) {
+
+        /** 품종 없이: 2026-11-21 이전처럼 템플릿 견종 기준으로 크기를 낸다. */
+        public PetRecord(String petId, String species, double weightKg, String coatColor, String name, String sex,
+                         boolean neutered, String ageText) {
+            this(petId, species, weightKg, coatColor, name, sex, neutered, ageText, null);
+        }
     }
 
     // 응답의 숫자 값은 상황에 따라 null 로 온다(사진이 거부되면 size·shape·photo 가 통째로 null 등).
@@ -62,7 +71,8 @@ public final class PetPipelineDtos {
     public record Size(@JsonProperty("weight_kg") Double weightKg,
                        @JsonProperty("withers_m") Double withersM,    // 체고(m). GLB 에 이미 적용돼 있어 표시용
                        Double scale,
-                       String rule) {                                 // "weight" 또는 "shape"
+                       // "weight"(견종 실측 기준), "mix"(기록 품종이 믹스) 또는 "shape"(실측 기준이 없는 템플릿)
+                       String rule) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
