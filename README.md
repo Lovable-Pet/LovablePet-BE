@@ -163,4 +163,4 @@ hotfix/*  ──PR──▶  main (긴급 수정, dev에도 반영)
 | :-- | :-- |
 | [**이주영**](https://github.com/LeeJuYoung12)<br><sub>LeeJuYoung12</sub> | 프로젝트 초기 세팅, 공공데이터 동기화와 유기견 조회 API, AR 생성 관리 (AI 서버 연동, GLB · USDZ 제공), 관리자 권한, 배포 (EC2 · Caddy · GitHub Actions) |
 | [**김태우**](https://github.com/taetu)<br><sub>taetu</sub> | 회원 · 인증 (아이디 · 카카오 로그인, JWT), 공통 응답 · 예외 처리, 찜 API |
-| [**안재인**](https://github.com/anjaein)<br><sub>anjaein</sub> | AR 미리보기 그림 (`previewUrl`) |
+
