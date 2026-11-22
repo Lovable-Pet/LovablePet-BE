@@ -24,7 +24,7 @@ import java.util.Map;
  * 크롬은 찍을 때마다 띄우고 닫는다: 하루 수십 장이라 상주시켜 메모리(수백 MB)를 잡아 둘 까닭이 없다. 한 번에 한 장만 찍는다.
  * <p>
  * 크롬과 Playwright 드라이버는 도커 이미지에 미리 깔려 있다(Dockerfile 의 PLAYWRIGHT_DRIVER_DIR · PLAYWRIGHT_BROWSERS_PATH).
- * 로컬에서는 build.gradle 의 driver-bundle 이 드라이버를 풀고, 크롬은 README 의 명령으로 한 번 깐다.
+ * 로컬에서는 build.gradle 의 driver-bundle 이 드라이버를 풀고, 크롬은 ./gradlew playwrightInstall 로 한 번 깐다.
  */
 @Slf4j
 @Component
