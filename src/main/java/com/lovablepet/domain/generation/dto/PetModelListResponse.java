@@ -11,7 +11,7 @@ public record PetModelListResponse(
         @Schema(description = "오늘(한국 날짜) 생성 시도 수", example = "7")
         long todayCount,
 
-        @Schema(description = "하루 생성 시도 상한", example = "30")
+        @Schema(description = "하루 생성 시도 상한", example = "100")
         int dailyLimit
 ) {
 }

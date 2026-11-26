@@ -54,6 +54,41 @@ class PetModelFilesTest {
     }
 
     @Test
+    @DisplayName("미리보기 그림은 GLB 옆에 {jobId}-preview-{내용 해시 8자}.webp 로 저장한다. 내용이 바뀌면 이름도 바뀐다")
+    void savePreview() throws IOException {
+        PetModelFiles files = files();
+
+        String first = files.savePreview(DESERTION_NO, JOB_ID, new byte[]{1, 2, 3});
+        String same = files.savePreview(DESERTION_NO, JOB_ID, new byte[]{1, 2, 3});
+        String other = files.savePreview(DESERTION_NO, JOB_ID, new byte[]{4});
+
+        assertThat(first).matches("448567202600123/448567202600123-a5ca257e-preview-[0-9a-f]{8}\\.webp").isEqualTo(same);
+        assertThat(other).isNotEqualTo(first);
+        assertThat(Files.readAllBytes(tempDir.resolve("models").resolve(first))).containsExactly(1, 2, 3);
+        assertThat(files.find(DESERTION_NO, first.substring(DESERTION_NO.length() + 1))).get()
+                .extracting(ModelFile::format).isEqualTo(Format.PREVIEW);
+        assertThatThrownBy(() -> files.savePreview(DESERTION_NO, "../j1", new byte[]{1}))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("stored·delete: 저장한 파일만 찾고 지운다. model-dir 밖 경로는 건드리지 않는다")
+    void storedAndDelete() throws IOException {
+        PetModelFiles files = files();
+        String glb = files.save(DESERTION_NO, JOB_ID, Format.GLB, new byte[]{1});
+        Path outside = Files.writeString(tempDir.resolve("secret.txt"), "x");
+
+        assertThat(files.stored(glb)).get().isEqualTo(tempDir.resolve("models").resolve(glb).toAbsolutePath().normalize());
+        assertThat(files.stored(null)).isEmpty();
+        assertThat(files.stored(DESERTION_NO + "/nope.glb")).isEmpty();
+        assertThat(files.stored("../secret.txt")).isEmpty();
+        assertThat(files.delete("../secret.txt")).isFalse();
+        assertThat(outside).exists();
+        assertThat(files.delete(glb)).isTrue();
+        assertThat(files.stored(glb)).isEmpty();
+    }
+
+    @Test
     @DisplayName("경로를 벗어나는 이름(../, /, 점)은 거부한다")
     void rejectsUnsafeNames() {
         PetModelFiles files = files();
@@ -95,6 +130,8 @@ class PetModelFilesTest {
         assertThat(files.find(DESERTION_NO, "..glb")).isEmpty();
         assertThat(files.find(DESERTION_NO, "..usdz")).isEmpty();
         assertThat(files.find(DESERTION_NO, ".usdz")).isEmpty();
+        assertThat(files.find(DESERTION_NO, "nope.webp")).isEmpty();
+        assertThat(files.find(DESERTION_NO, "..webp")).isEmpty();
     }
 
     private PetModelFiles files() {

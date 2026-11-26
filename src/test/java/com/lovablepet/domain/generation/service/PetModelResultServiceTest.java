@@ -58,13 +58,15 @@ class PetModelResultServiceTest {
     private PetPipelineClient pipelineClient;
     @Mock
     private PetModelFiles files;
+    @Mock
+    private PetModelPreviewService previewService;
 
     private PetModelResultService service;
 
     @BeforeEach
     void setUp() {
         service = new PetModelResultService(petModelRepository, petRepository, writer, pipelineClient, files,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                previewService, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
@@ -82,6 +84,7 @@ class PetModelResultServiceTest {
 
         verify(pipelineClient, never()).download(JOB_ID, "model.usdz"); // usdz_url 이 없으면 받지 않는다
         verify(pipelineClient).delete(JOB_ID);
+        verify(previewService).request(12L); // 미리보기 그림은 반영한 뒤 따로 찍는다
     }
 
     @Test
@@ -127,7 +130,7 @@ class PetModelResultServiceTest {
 
         service.apply(job("done"));
 
-        verifyNoInteractions(pipelineClient, files, writer);
+        verifyNoInteractions(pipelineClient, files, writer, previewService);
     }
 
     @Test

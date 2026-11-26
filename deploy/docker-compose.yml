@@ -5,7 +5,9 @@
 # - spring: 외부 네트워크 lovablepet 으로 파이프라인 컨테이너(http://pipeline:8000)와 통신한다.
 #           8080 은 서버 안(127.0.0.1)에서만 열어 배포 헬스체크에 쓰고, 외부에서는 caddy 를 거친다.
 # - postgres: 내부 네트워크 db 에만 붙고 포트를 열지 않는다.
-# - 메모리: 8 GB 를 파이프라인(작업 중 최고 약 3.1 GB)과 나눠 쓴다. spring 1.5 GB(힙은 그 70%), postgres 1 GB.
+# - 메모리: 8 GB 를 파이프라인(작업 중 최고 약 3.1 GB)과 나눠 쓴다. spring 2.5 GB(힙은 그 50%), postgres 1 GB.
+#   spring 은 AR 미리보기 그림을 찍을 때 화면 없는 크롬(한 장에 수백 MB, 한 번에 하나)을 같은 컨테이너에서 띄운다.
+#   그래서 힙 비율을 70% → 50% 로 낮춰 크롬 몫을 남긴다 (힙 최대는 약 1.05 GB → 1.25 GB 로 오히려 조금 늘어난다).
 name: lovablepet-spring
 
 x-logging: &logging
@@ -64,7 +66,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
       PET_PIPELINE_BASE_URL: http://pipeline:8000
       PET_PIPELINE_CALLBACK_URL: http://spring:8080/internal/pet-models/callback   # 같은 docker 네트워크라 공개 주소가 필요 없다
-      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=50 -XX:+ExitOnOutOfMemoryError
       SWAGGER_ENABLED: "true"                # API 문서 /swagger-ui.html 공개 (끄려면 이 줄을 지운다)
     volumes:
       - ./data/storage:/data/storage        # 업로드 파일 + models/(GLB·USDZ). 폴더 소유자는 uid 10001 (Dockerfile)
@@ -73,7 +75,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    mem_limit: 1536m
+    mem_limit: 2560m
     logging: *logging
     networks:
       - lovablepet

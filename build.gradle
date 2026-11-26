@@ -17,7 +17,14 @@ configurations {
     compileOnly {
         extendsFrom annotationProcessor
     }
+    // 도커 이미지에 넣을 리눅스용 Playwright 드라이버 (아래 playwrightDriver 작업)
+    playwrightDriver {
+        transitive = false
+    }
 }
+
+// 미리보기 그림을 찍는 Playwright. 드라이버(driver-bundle)와 크롬 버전이 이 값에 묶여 있어 함께 바뀐다
+ext.playwrightVersion = '1.65.1'
 
 repositories {
     mavenCentral()
@@ -50,6 +57,18 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+    // AR 미리보기 그림: 화면 없는 크롬에 프론트와 같은 model-viewer 를 띄워 찍는다 (PetModelPreviewRenderer)
+    // driver-bundle(Node + Playwright, 운영체제 5개분 약 230MB)은 jar 에 넣지 않는다.
+    // 도커 이미지는 아래 playwrightDriver 작업으로 리눅스 몫만 꺼내 PLAYWRIGHT_DRIVER_DIR 로 쓴다 (Dockerfile)
+    implementation("com.microsoft.playwright:playwright:${playwrightVersion}") {
+        exclude group: 'com.microsoft.playwright', module: 'driver-bundle'
+        exclude group: 'org.slf4j', module: 'slf4j-simple'   // 로그는 Spring 의 logback 으로
+    }
+    developmentOnly "com.microsoft.playwright:driver-bundle:${playwrightVersion}"   // bootRun 에서만 (bootJar 에는 안 들어감)
+    testRuntimeOnly "com.microsoft.playwright:driver-bundle:${playwrightVersion}"
+    playwrightDriver "com.microsoft.playwright:driver:${playwrightVersion}"          // package/ (Playwright 본체 JS)
+    playwrightDriver "com.microsoft.playwright:driver-bundle:${playwrightVersion}"   // 운영체제별 node
+
     // Spring Security 추가
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
@@ -61,6 +80,23 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// 리눅스 x64 드라이버(node + package/)만 build/playwright-driver 로 꺼낸다. Dockerfile 이 /opt/playwright-driver 로 복사한다
+tasks.register('playwrightDriver', Sync) {
+    from({ configurations.playwrightDriver.collect { zipTree(it) } }) {
+        include 'driver/linux/**', 'driver/package/**'
+        eachFile { it.path = it.path.replaceFirst('^driver/(linux/)?', '') }
+        includeEmptyDirs = false
+    }
+    into layout.buildDirectory.dir('playwright-driver')
+}
+
+// 로컬 개발용: 이 Playwright 버전에 맞는 화면 없는 크롬을 내 컴퓨터에 한 번 깐다 (도커 이미지는 Dockerfile 이 깐다)
+tasks.register('playwrightInstall', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.microsoft.playwright.CLI'
+    args 'install', '--only-shell', 'chromium'
 }
 
 // 실행 가능한 bootJar만 생성 (plain jar 생략 → Dockerfile에서 jar 경로가 하나로 고정됨)

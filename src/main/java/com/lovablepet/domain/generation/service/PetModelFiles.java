@@ -11,13 +11,17 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * AR 모델 파일 저장소: {model-dir}/{유기번호}/{jobId}.glb 와 같은 이름의 .usdz (노션 계획의 S3 키 models/{petId}/{jobId}.glb 와 같은 모양).
- * 다시 만들면 jobId 가 바뀌어 파일 이름도 바뀌므로 오래 캐시해도 옛 모델이 남지 않는다. S3 로 옮기면 이 클래스만 바꾼다.
+ * AR 모델 파일 저장소: {model-dir}/{유기번호}/{jobId}.glb 와 같은 이름의 .usdz (노션 계획의 S3 키 models/{petId}/{jobId}.glb 와 같은 모양),
+ * 그리고 미리보기 그림 {jobId}-preview-{내용 해시 8자}.webp.
+ * 다시 만들면 jobId(그림은 내용 해시)가 바뀌어 파일 이름도 바뀌므로 오래 캐시해도 옛 파일이 남지 않는다. S3 로 옮기면 이 클래스만 바꾼다.
  */
 @Component
 public class PetModelFiles {
@@ -25,11 +29,15 @@ public class PetModelFiles {
     // 점(.)을 받지 않아 "../" 같은 경로를 만들 수 없다. 유기번호는 숫자, jobId 는 "{유기번호}-{16진수}"
     private static final Pattern SAFE_NAME = Pattern.compile("[A-Za-z0-9_-]{1,100}");
 
-    /** 같은 모델의 두 형식. 안드로이드·데스크톱 AR 은 GLB, 아이폰 AR(Quick Look)은 USDZ 만 읽는다 */
+    /**
+     * 같은 모델의 두 형식과 미리보기 그림. 안드로이드·데스크톱 AR 은 GLB, 아이폰 AR(Quick Look)은 USDZ 만 읽는다.
+     * PREVIEW 는 상세 화면 카드를 뒤집자마자 보여 줄 그림 (PetModelPreviewService)
+     */
     public enum Format {
-        // Spring 이 아는 확장자 목록에 둘 다 없어 Content-Type 을 직접 지정한다
+        // Spring 이 아는 확장자 목록에 셋 다 없어 Content-Type 을 직접 지정한다
         GLB(".glb", MediaType.valueOf("model/gltf-binary")),
-        USDZ(".usdz", MediaType.valueOf("model/vnd.usdz+zip"));
+        USDZ(".usdz", MediaType.valueOf("model/vnd.usdz+zip")),
+        PREVIEW(".webp", MediaType.valueOf("image/webp"));
 
         private final String suffix;
         private final MediaType mediaType;
@@ -67,22 +75,59 @@ public class PetModelFiles {
 
     /** 저장하고 model-dir 기준 상대 경로(예: "{유기번호}/{jobId}.glb")를 돌려준다. 같은 작업이면 덮어쓴다. */
     public String save(String desertionNo, String jobId, Format format, byte[] content) {
-        if (desertionNo == null || jobId == null
-                || !SAFE_NAME.matcher(desertionNo).matches() || !SAFE_NAME.matcher(jobId).matches()) {
+        return write(desertionNo, jobId, format, content);
+    }
+
+    /**
+     * 미리보기 그림을 "{유기번호}/{jobId}-preview-{내용 해시 8자}.webp" 로 저장하고 그 상대 경로를 돌려준다.
+     * 다시 찍어 그림이 바뀌면 이름도 바뀌어, 1년 캐시(ModelFileController)에 옛 그림이 남지 않는다.
+     */
+    public String savePreview(String desertionNo, String jobId, byte[] webp) {
+        String hash;
+        try {
+            hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(webp), 0, 4);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+        return write(desertionNo, jobId == null ? null : jobId + "-preview-" + hash, Format.PREVIEW, webp);
+    }
+
+    /** 저장해 둔 파일(save 가 돌려준 상대 경로)의 실제 위치. 없거나 model-dir 밖이면 empty */
+    public Optional<Path> stored(String path) {
+        if (path == null) {
+            return Optional.empty();
+        }
+        Path file = modelDir.resolve(path).normalize();
+        return file.startsWith(modelDir) && Files.isRegularFile(file) ? Optional.of(file) : Optional.empty();
+    }
+
+    /** 다시 찍어 쓰지 않게 된 미리보기 그림 등을 지운다. 지우지 못해도 서비스에는 지장이 없어 false 만 돌려준다 */
+    public boolean delete(String path) {
+        try {
+            Optional<Path> file = stored(path);
+            return file.isPresent() && Files.deleteIfExists(file.get());
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private String write(String desertionNo, String baseName, Format format, byte[] content) {
+        if (desertionNo == null || baseName == null
+                || !SAFE_NAME.matcher(desertionNo).matches() || !SAFE_NAME.matcher(baseName).matches()) {
             throw new GenerationException(ErrorCode.GENERATION_INVALID_PET_ID);
         }
         Path dir = modelDir.resolve(desertionNo);
-        Path target = dir.resolve(jobId + format.suffix);
+        Path target = dir.resolve(baseName + format.suffix);
         try {
             Files.createDirectories(dir);
             // 다 쓴 뒤에 이름을 바꿔, 받는 도중에 반쯤 쓴 파일이 서빙되지 않게 한다
-            Path temp = Files.createTempFile(dir, jobId, ".tmp");
+            Path temp = Files.createTempFile(dir, baseName, ".tmp");
             Files.write(temp, content);
             Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
             throw new UncheckedIOException(format + " 저장 실패: " + target, e);
         }
-        return desertionNo + "/" + jobId + format.suffix;
+        return desertionNo + "/" + baseName + format.suffix;
     }
 
     /** 앱에 내려주는 주소 (예: /models/448567202600123/448567202600123-a5ca257e.glb). 저장 전이거나 없는 파일이면 null */
@@ -90,7 +135,7 @@ public class PetModelFiles {
         return path == null ? null : baseUrl + "/" + path;
     }
 
-    /** GET /models/{유기번호}/{파일} 의 실제 파일. .glb·.usdz 가 아니거나 이름이 안전하지 않으면 empty (→ 404) */
+    /** GET /models/{유기번호}/{파일} 의 실제 파일. .glb·.usdz·.webp 가 아니거나 이름이 안전하지 않으면 empty (→ 404) */
     public Optional<ModelFile> find(String desertionNo, String fileName) {
         if (desertionNo == null || fileName == null || !SAFE_NAME.matcher(desertionNo).matches()) {
             return Optional.empty();

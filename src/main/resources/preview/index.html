@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <!--
+    PetModelPreviewRenderer 가 화면 없는 크롬으로 여는 페이지 (주소는 가짜 출처, 파일은 서버가 직접 내준다).
+    프론트 상세 화면 카드 뒷면(LovablePet-FE src/features/pet/components/ModelPreview.tsx)과 같은
+    model-viewer 4.1.0 · 같은 카메라 · 같은 그림자로 찍어, 그림에서 3D 로 바뀔 때 튀지 않게 한다.
+    프론트의 model-viewer 설정을 바꾸면 여기도 같이 바꾸고, 이미 만든 그림은 관리자 일괄 생성(force)으로 다시 찍는다.
+  -->
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    model-viewer { display: block; width: 100%; height: 100%; background: transparent; --poster-color: transparent; }
+  </style>
+  <script type="module" src="/model-viewer.min.js"></script>
+</head>
+<body>
+<model-viewer id="viewer"
+              camera-orbit="35deg 78deg 105%"
+              shadow-intensity="1"
+              shadow-softness="0.8"
+              interaction-prompt="none"
+              loading="eager"></model-viewer>
+<script type="module">
+  const TIMEOUT_MS = 60000
+
+  /** GLB 를 열어 대기 자세 첫 프레임을 찍고, 투명 배경 WebP 를 base64 로 돌려준다 */
+  window.renderPreview = (src, quality) => Promise.race([
+    render(src, quality),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('미리보기를 찍는 시간이 초과됐습니다')), TIMEOUT_MS)),
+  ])
+
+  async function render(src, quality) {
+    await customElements.whenDefined('model-viewer')
+    // 화면 없는 크롬은 느려서 model-viewer 가 해상도를 스스로 낮춘다. 낮추지 않게 막는다
+    customElements.get('model-viewer').minimumRenderScale = 1
+
+    const viewer = document.getElementById('viewer')
+    await new Promise((resolve, reject) => {
+      viewer.addEventListener('load', resolve, { once: true })
+      viewer.addEventListener('error', (event) => reject(new Error('GLB 를 읽지 못했습니다: ' + (event.detail?.type ?? 'unknown'))), { once: true })
+      viewer.src = src
+    })
+
+    // 대기 자세: 진도 템플릿은 standing, 다른 템플릿은 idle (프론트 dogAnimator 와 같은 규칙), 그 첫 프레임
+    const clips = viewer.availableAnimations
+    const idle = clips.includes('standing') ? 'standing' : clips.includes('idle') ? 'idle' : clips[0]
+    if (idle) {
+      viewer.animationName = idle
+      await viewer.updateComplete
+      viewer.play()
+      viewer.pause()
+      viewer.currentTime = 0
+    }
+    await frames(5)
+
+    const blob = await viewer.toBlob({ mimeType: 'image/webp', qualityArgument: quality })
+    if (blob.type !== 'image/webp') {
+      throw new Error('WebP 로 만들지 못했습니다: ' + blob.type)
+    }
+    return toBase64(blob)
+  }
+
+  function frames(count) {
+    return new Promise((resolve) => {
+      const step = (left) => (left === 0 ? resolve() : requestAnimationFrame(() => step(left - 1)))
+      step(count)
+    })
+  }
+
+  function toBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result).slice(String(reader.result).indexOf(',') + 1))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(blob)
+    })
+  }
+</script>
+</body>
+</html>

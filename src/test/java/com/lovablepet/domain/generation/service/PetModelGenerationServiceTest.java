@@ -93,8 +93,18 @@ class PetModelGenerationServiceTest {
         assertThat(record.coatColor()).isEqualTo("갈색&흰색");
         assertThat(record.name()).isEqualTo("믹스견 · 경기도 화성시 · 5.5kg");
         assertThat(record.neutered()).isTrue();
+        assertThat(record.breed()).isEqualTo("믹스견");
         assertThat(PetModelGenerationService.record(pet("N", "5(Kg)"), BigDecimal.ONE).neutered()).isFalse();
         assertThat(PetModelGenerationService.record(pet("U", "5(Kg)"), BigDecimal.ONE).neutered()).isFalse();
+    }
+
+    @Test
+    @DisplayName("기록: 공고에 품종(kindNm)이 없으면 breed 는 null 로 보낸다")
+    void record_withoutKind() {
+        Pet pet = Pet.from(new PublicAnimalItem(jsonMapper.readTree("""
+                {"desertionNo":"448567202600123","weight":"5(Kg)","processState":"보호중"}""")), NOW);
+
+        assertThat(PetModelGenerationService.record(pet, BigDecimal.ONE).breed()).isNull();
     }
 
     @Test

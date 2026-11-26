@@ -1,49 +1,93 @@
-# Lovable Pet 🐾
+<div align="center">
 
-> 유기동물 입양 매칭 + AR 서비스
+<img src="docs/images/hero.jpg" width="100%" alt="Lovable Pet">
 
-보호소 유기동물의 사진으로 3D 모델을 생성해 AR로 미리 만나보고, 입양 희망자의 설문을 바탕으로 적합도가 높은 동물을 추천하는 서비스입니다.
-이 저장소는 **Spring Boot 백엔드** 저장소입니다. (프론트엔드, Python AI 서버는 별도 저장소)
+<br>
 
-## 기술 스택
+**보호소 강아지를 입양 전에 우리 집에 띄워, 실제 크기로 함께 지내는 모습을 미리 체험해 보는 AR 서비스**
 
-| 구분 | 사용 기술 |
-|---|---|
-| Language / Runtime | Java 21 |
-| Framework | Spring Boot 4.1 (Web MVC, Validation, Data JPA, Actuator) |
-| Build | Gradle 9 (Wrapper 포함 — 별도 설치 불필요) |
-| DB | PostgreSQL 16 + pgvector |
-| Migration | Flyway |
-| API 문서 | springdoc-openapi 3.x (Swagger UI) |
-| 외부 연동 | Python AI 서버 (3D 생성) — Spring `RestClient` |
-| Infra | Docker, Docker Compose, GitHub Actions |
+Lovable Pet의 **Spring Boot 백엔드** 저장소입니다.
 
+<br>
 
-## 백엔드 패키지 구조 (도메인형)
+![Java 21](https://img.shields.io/badge/Java_21-437291?style=flat-square&logo=openjdk&logoColor=white)
+![Spring Boot 4.1](https://img.shields.io/badge/Spring_Boot_4.1-6DB33F?style=flat-square&logo=springboot&logoColor=white)
+![Spring Security](https://img.shields.io/badge/Spring_Security-6DB33F?style=flat-square&logo=springsecurity&logoColor=white)
+![Spring Data JPA](https://img.shields.io/badge/Spring_Data_JPA-59666C?style=flat-square&logo=hibernate&logoColor=white)
+![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL_16-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)
+![AWS EC2](https://img.shields.io/badge/AWS_EC2-FF9900?style=flat-square)
+
+</div>
+
+<br>
+
+## 🐾 하는 일
+
+- 공공데이터포털의 구조동물 공고를 매주 월요일 동기화해, 입양할 수 있는 유기견의 목록 · 상세 · 필터 API로 제공합니다.
+- 관리자가 고른 유기견의 AR 모델 생성을 AI 서버에 요청하고, 완료 콜백으로 받은 GLB · USDZ와 미리보기 그림을 저장해 제공합니다.
+- 아이디 · 카카오 로그인(JWT)과 찜 기능을 제공합니다.
+
+<br>
+
+## 🏗️ 아키텍처
+
+<img src="docs/images/backend.png" width="100%" alt="Backend 아키텍처">
+
+<br>
+
+## 📡 주요 API
+
+요청 · 응답 필드와 실패 코드는 Swagger UI에 정리되어 있습니다.
+
+| 구분 | 메서드 | 경로 | 설명 | 권한 |
+| :-- | :-- | :-- | :-- | :-- |
+| 인증 | `POST` | `/api/auth/signup` | 회원가입 | 누구나 |
+| | `POST` | `/api/auth/login` | 아이디 로그인 | 누구나 |
+| | `GET` | `/api/auth/check-username` | 아이디 중복 확인 | 누구나 |
+| | `POST` | `/api/auth/kakao` | 카카오 로그인 | 누구나 |
+| | `POST` | `/api/auth/reissue` | 토큰 재발급 | 누구나 |
+| | `POST` | `/api/auth/logout` | 로그아웃 | 누구나 |
+| 유기견 | `GET` | `/api/pets` | 목록 (지역 · 품종 · 체중 · AR 유무 · 정렬) | 누구나 |
+| | `GET` | `/api/pets/filters` | 목록 필터 선택지 | 누구나 |
+| | `GET` | `/api/pets/{id}` | 상세 (AR 모델 포함) | 누구나 |
+| 찜 | `GET` | `/api/members/me/favorites` | 내 찜 목록 | 로그인 |
+| | `PUT` | `/api/members/me/favorites/{petId}` | 찜하기 | 로그인 |
+| | `DELETE` | `/api/members/me/favorites/{petId}` | 찜 취소 | 로그인 |
+| AR 모델 | `GET` | `/models/{desertionNo}/{fileName}` | GLB · USDZ · 미리보기 그림 파일 | 누구나 |
+| 관리자 | `POST` | `/api/admin/pets/sync` | 공공데이터 동기화 바로 실행 | ADMIN |
+| | `POST` | `/api/admin/pets/{id}/model/fit` | 고른 사진으로 만들 수 있는지 확인 | ADMIN |
+| | `POST` | `/api/admin/pets/{id}/model` | AR 만들기 | ADMIN |
+| | `GET` | `/api/admin/pets/{id}/model` | 최근 AR 생성 상태 | ADMIN |
+| | `GET` | `/api/admin/pet-models` | AR 생성 시도 목록 | ADMIN |
+| | `POST` | `/api/admin/pet-models/previews` | 미리보기 그림 일괄 생성 | ADMIN |
+| 내부 | `POST` | `/internal/pet-models/callback` | AI 서버의 생성 완료 콜백 | API 키 |
+
+<br>
+
+## 📁 패키지 구조 (도메인형)
 
 ```
 com.lovablepet
 ├── domain/             # 비즈니스 도메인
-│   ├── pet/            # 동물 기록, 사진
-│   │   ├── controller/
-│   │   ├── service/
-│   │   ├── repository/
-│   │   ├── entity/
-│   │   └── dto/
-│   ├── generation/     # 3D 생성 작업, Python 클라이언트, 웹훅
-│   ├── model/          # 완성된 3D 결과 조회
-│   ├── match/          # 적합도 매칭, 재랭킹
-│   └── survey/         # 설문
+│   ├── auth/           # 아이디 · 카카오 로그인, 토큰 발급 · 재발급
+│   ├── member/         # 회원, 역할 (USER / ADMIN)
+│   ├── pet/            # 유기견, 공공데이터 동기화, 목록 · 상세 · 필터
+│   ├── favorite/       # 찜
+│   └── generation/     # AR 생성 요청 · 콜백, GLB · USDZ · 미리보기 그림 제공
 └── global/             # 전역 설정 / 공통 모듈
-    ├── config/         # RestClient, OpenAPI, CORS 설정
+    ├── config/         # Security, CORS, OpenAPI, RestClient, 스케줄링 설정
+    ├── security/       # JWT 필터, 인증 · 권한 오류 응답
     ├── exception/      # ErrorCode, BusinessException, GlobalExceptionHandler
     └── response/       # 공통 응답 포맷 (ApiResponse, ErrorResponse)
 ```
 
-- 새 도메인은 `domain/{도메인명}/` 아래에 `pet`과 같은 하위 구조(controller / service / repository / entity / dto)로 추가합니다.
-- 빈 패키지는 git에 올라가지 않으므로, 첫 클래스를 추가할 때 패키지를 만듭니다.
+새 도메인은 `domain/{도메인명}/` 아래에 `controller / service / repository / entity / dto` 구조로 추가합니다.
 
-## 공통 응답 포맷
+<br>
+
+## 📦 공통 응답 포맷
 
 모든 API는 아래 형식으로 응답합니다. 값이 없는 필드도 `null`로 항상 포함합니다.
 
@@ -75,10 +119,9 @@ com.lovablepet
 
 도메인 예외는 `BusinessException`을 상속하고, 에러 코드는 `ErrorCode` enum에 추가합니다.
 
----
+<br>
 
-
-## 브랜치 전략
+## 🌿 브랜치 전략
 
 ```
 feat/*, fix/*, refactor/*, docs/*, chore/*  ──PR──▶  dev  ──PR──▶  main
@@ -102,84 +145,22 @@ hotfix/*  ──PR──▶  main (긴급 수정, dev에도 반영)
 커밋 메시지 권장 형식: `type(scope): 설명`
 (`feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci` 등)
 
----
+<br>
 
-## 배포 (AWS EC2 + GitHub Actions)
+## 🚀 배포
 
-Python 파이프라인(LovablePet-AI-AR)과 같은 EC2에 Docker로 올립니다.
-API 주소는 **https://api.lovablepet.tech** 입니다. (프론트: `lovablepet.tech` / `www.lovablepet.tech`)
+<img src="docs/images/infra.png" width="100%" alt="Infra 아키텍처">
 
-- `.github/workflows/deploy.yml`: `dev`·`main`으로의 PR과 push마다 이미지를 빌드하고 prod 프로필로 뜨는지(`/actuator/health`) 확인합니다.
-  `main`에 머지되면 이미지를 GHCR(`ghcr.io/lovable-pet/lovablepet-be`, 태그 sha·latest)에 올리고 EC2에서 새 이미지로 교체합니다.
-- 이미지는 Actions에서 빌드합니다. EC2는 메모리를 파이프라인과 나눠 쓰므로 서버에서 빌드하지 않습니다.
+- `dev` · `main`으로의 PR과 push마다 CI(빌드 · 테스트)와 CD(이미지 빌드, 운영 설정으로 뜨는지 확인)가 돕니다.
+- `main`에 머지되면 이미지를 GHCR에 올리고, EC2에서 새 이미지로 교체합니다.
+- 서버는 AWS EC2에서 Docker Compose로 운영하고, HTTPS는 Caddy가 맡습니다.
 
-서버 폴더 `~/lovablepet-spring/` (파이프라인의 `~/lovablepet-ai/`와 분리):
+<br>
 
-| 경로 | 내용 |
-|---|---|
-| `docker-compose.yml` | 배포가 `deploy/docker-compose.yml`을 복사 |
-| `Caddyfile` | 배포가 `deploy/Caddyfile`을 복사. `api.lovablepet.tech` → `spring:8080` |
-| `data/caddy/` | Let's Encrypt 인증서. 지우면 재발급하는데 발급 횟수 제한이 있으니 건드리지 않음 |
-| `.env` | 비밀값. 서버에서만 만들고 커밋하지 않음 (변수 목록: `deploy/.env.example`) |
-| `data/postgres/` | DB 데이터 |
-| `data/storage/` | 업로드 파일 + `models/`(콜백으로 받은 GLB와 아이폰 AR용 USDZ). 소유자 uid 10001 |
+## 👥 BE 담당
 
-| 컨테이너 | 내용 |
-|---|---|
-| `caddy` | 80·443 공개. HTTPS 종단(인증서 자동 발급·갱신) 후 `spring:8080`으로 전달. 네트워크 `lovablepet` |
-| `spring` | 8080은 서버 안(127.0.0.1)에서만 열림(배포 헬스체크용). 네트워크 `lovablepet`(파이프라인과 공유)·`db`. 메모리 상한 1.5 GB (힙은 그 70%) |
-| `lovablepet-postgres` | `pgvector/pgvector:pg16`. 내부 네트워크 `db`에만 붙고 포트를 열지 않음. 메모리 상한 1 GB |
+| 팀원 | 맡은 일 |
+| :-- | :-- |
+| [**이주영**](https://github.com/LeeJuYoung12)<br><sub>LeeJuYoung12</sub> | 프로젝트 초기 세팅, 공공데이터 동기화와 유기견 조회 API, AR 생성 관리 (AI 서버 연동, GLB · USDZ 제공), 관리자 권한, 배포 (EC2 · Caddy · GitHub Actions) |
+| [**김태우**](https://github.com/taetu)<br><sub>taetu</sub> | 회원 · 인증 (아이디 · 카카오 로그인, JWT), 공통 응답 · 예외 처리, 찜 API |
 
-파이프라인 연동: Spring은 `http://pipeline:8000`을 부르고, 파이프라인은 `http://spring:8080/internal/pet-models/callback`으로 결과를 보냅니다.
-같은 docker 네트워크라 공개 주소가 필요 없습니다. `PET_PIPELINE_API_KEY`는 `~/lovablepet-ai/.env`의 `PIPELINE_API_KEY`와 같은 값이고,
-파이프라인이 없어도 Spring은 정상으로 뜹니다.
-
-서버 준비 (한 번):
-
-1. swap 2 GB (메모리가 넘칠 때 프로세스가 강제 종료되는 대신 느려지도록):
-   ```
-   sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
-   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-   echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf && sudo sysctl -p /etc/sysctl.d/99-swappiness.conf
-   ```
-2. 폴더와 `.env`:
-   ```
-   mkdir -p ~/lovablepet-spring/data/postgres
-   sudo install -d -o 10001 -g 10001 -m 750 ~/lovablepet-spring/data/storage
-   # deploy/.env.example 의 변수를 ~/lovablepet-spring/.env 에 채운다 (chmod 600)
-   # 랜덤 값은 openssl rand -hex 32, JWT_SECRET 만 openssl rand -base64 32
-   ```
-3. Actions용 SSH 키를 따로 만들어 공개키를 서버 `~/.ssh/authorized_keys`에 추가하고, 저장소 Actions secrets에 등록:
-   `SSH_HOST`(Elastic IP), `SSH_USER`(`ubuntu`), `SSH_KEY`(개인키 전체).
-4. 도메인(`lovablepet.tech`)과 HTTPS:
-   - DNS에 A 레코드 `api` → EC2 Elastic IP 를 추가합니다. (프론트용 `@`, `www`는 프론트 호스팅 안내대로 따로 연결)
-   - EC2 보안 그룹 인바운드: 22(내 IP), 80, 443만 엽니다. 8080은 열지 않습니다.
-   - 인증서는 첫 배포 때 Caddy가 Let's Encrypt에서 자동으로 받습니다. DNS가 먼저 Elastic IP를 가리키고 있어야 합니다.
-     (`dig +short api.lovablepet.tech` 로 확인)
-   - `.env`의 `CORS_ALLOWED_ORIGINS`에 프론트 주소(`https://lovablepet.tech,https://www.lovablepet.tech`)를,
-     `KAKAO_REDIRECT_URI`에 프론트의 카카오 콜백 화면 `https://lovablepet.tech/oauth/kakao`를 넣습니다.
-     카카오는 인가 코드를 이 프론트 화면으로 보내고, 프론트가 그 코드를 `POST /api/auth/kakao`로 넘기므로 API 도메인(`api.`)이 아닙니다.
-     카카오 개발자 콘솔의 Redirect URI와 프론트의 `VITE_KAKAO_REDIRECT_URI`도 글자 하나까지 같은 값이어야 하고(다르면 KOE006·KOE303),
-     콘솔에는 사이트 도메인 `https://lovablepet.tech`도 등록합니다.
-
-API 문서(Swagger UI): `https://api.lovablepet.tech/swagger-ui.html`
-(운영에서는 `deploy/docker-compose.yml`의 `SWAGGER_ENABLED`로 켭니다. 로그인·회원가입 응답의 `accessToken`을 오른쪽 위 **Authorize**에 넣으면 인증이 필요한 API도 호출해 볼 수 있습니다)
-
-확인과 로그 (서버에서):
-
-```
-curl -fsS localhost:8080/actuator/health                # spring 직접
-curl -fsS https://api.lovablepet.tech/actuator/health   # 도메인 경유
-docker logs -f spring
-docker logs -f caddy                                    # 인증서 발급 실패 등
-```
-
-`Caddyfile`을 고친 뒤 반영 (서버에서): `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`
-
-`.env`를 고친 뒤(예: 카카오 키 추가) 반영 (서버에서):
-
-```
-cd ~/lovablepet-spring && docker compose up -d
-```
-
-`DB_PASSWORD`는 DB를 처음 띄울 때만 적용됩니다. 나중에 바꾸려면 DB 안에서도 `ALTER USER`로 바꿔야 합니다.

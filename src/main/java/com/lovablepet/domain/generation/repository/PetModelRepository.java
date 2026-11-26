@@ -36,4 +36,15 @@ public interface PetModelRepository extends JpaRepository<PetModel, Long> {
     List<PetModel> findTop100ByStatusOrderByCreatedAtDesc(PetModelStatus status);
 
     List<PetModel> findTop100ByOrderByCreatedAtDesc();
+
+    /** 미리보기 그림을 찍을 모델: GLB 가 있고, all 이 false 면 그림이 아직 없는 것만 */
+    default List<Long> findIdsForPreview(PetModelStatus status, boolean all) {
+        return all ? findIdsWithGlb(status) : findIdsWithGlbWithoutPreview(status);
+    }
+
+    @Query("select m.id from PetModel m where m.status = :status and m.glbPath is not null order by m.id")
+    List<Long> findIdsWithGlb(@Param("status") PetModelStatus status);
+
+    @Query("select m.id from PetModel m where m.status = :status and m.glbPath is not null and m.previewPath is null order by m.id")
+    List<Long> findIdsWithGlbWithoutPreview(@Param("status") PetModelStatus status);
 }
