@@ -4,6 +4,7 @@ import com.lovablepet.domain.generation.client.PetPipelineDtos.Job;
 import com.lovablepet.domain.generation.entity.PetModel;
 import com.lovablepet.domain.generation.entity.PetModelStatus;
 import com.lovablepet.domain.generation.repository.PetModelRepository;
+import com.lovablepet.domain.generation.service.PetModelWriter.PreviewAttach;
 import com.lovablepet.domain.pet.client.PublicAnimalItem;
 import com.lovablepet.domain.pet.entity.Pet;
 import com.lovablepet.domain.pet.repository.PetRepository;
@@ -68,11 +69,27 @@ class PetModelPreviewServiceTest {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
         given(renderer.render(GLB_FILE)).willReturn(WEBP);
         given(files.savePreview("448567202600123", JOB_ID, WEBP)).willReturn(PREVIEW_PATH);
+        given(writer.attachPreview(12L, PREVIEW_PATH)).willReturn(new PreviewAttach(true, null));
 
         service.create(12L, false);
 
         verify(writer).attachPreview(12L, PREVIEW_PATH);
         verify(files, never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("찍는 사이 다시 만들기로 교체된 모델(REPLACED)이면 붙이지 않고 방금 찍은 그림을 지운다")
+    void create_replacedWhileRendering_deletesNewPreview() {
+        given(petModelRepository.findById(12L)).willReturn(Optional.of(doneModel()));
+        given(files.stored(GLB_PATH)).willReturn(Optional.of(GLB_FILE));
+        given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
+        given(renderer.render(GLB_FILE)).willReturn(WEBP);
+        given(files.savePreview("448567202600123", JOB_ID, WEBP)).willReturn(PREVIEW_PATH);
+        given(writer.attachPreview(12L, PREVIEW_PATH)).willReturn(PreviewAttach.SKIPPED);
+
+        service.create(12L, false);
+
+        verify(files).delete(PREVIEW_PATH);
     }
 
     @Test
@@ -89,7 +106,8 @@ class PetModelPreviewServiceTest {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
         given(renderer.render(GLB_FILE)).willReturn(WEBP);
         given(files.savePreview("448567202600123", JOB_ID, WEBP)).willReturn(PREVIEW_PATH);
-        given(writer.attachPreview(12L, PREVIEW_PATH)).willReturn("448567202600123/" + JOB_ID + "-preview-00000000.webp");
+        given(writer.attachPreview(12L, PREVIEW_PATH))
+                .willReturn(new PreviewAttach(true, "448567202600123/" + JOB_ID + "-preview-00000000.webp"));
 
         service.create(12L, true);
 
@@ -133,6 +151,7 @@ class PetModelPreviewServiceTest {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
         given(renderer.render(GLB_FILE)).willReturn(WEBP);
         given(files.savePreview("448567202600123", JOB_ID, WEBP)).willReturn(PREVIEW_PATH);
+        given(writer.attachPreview(12L, PREVIEW_PATH)).willReturn(new PreviewAttach(true, null));
 
         assertThat(service.requestAll(false)).isEqualTo(1);
 

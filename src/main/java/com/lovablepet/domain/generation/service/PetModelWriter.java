@@ -84,11 +84,23 @@ public class PetModelWriter {
         }
     }
 
-    /** 완성 모델에 미리보기 그림 경로를 붙인다. 다시 찍었으면 이전 그림 경로를 돌려준다 (없으면 null) */
+    /**
+     * 완성 모델에 미리보기 그림 경로를 붙인다. 다시 찍었으면 이전 그림 경로도 돌려준다.
+     * 찍는 사이(수 초~십수 초) 다시 만들기로 교체됐거나(REPLACED) 없어진 모델에는 붙이지 않는다 — 찍은 파일은 부른 쪽이 지운다.
+     */
     @Transactional
-    public String attachPreview(Long id, String previewPath) {
-        PetModel model = petModelRepository.findById(id).orElseThrow();
-        return model.attachPreview(previewPath);
+    public PreviewAttach attachPreview(Long id, String previewPath) {
+        PetModel model = petModelRepository.findById(id).orElse(null);
+        if (model == null || model.getStatus() != PetModelStatus.DONE) {
+            return PreviewAttach.SKIPPED;
+        }
+        return new PreviewAttach(true, model.attachPreview(previewPath));
+    }
+
+    /** attachPreview 결과. previous 는 다시 찍기 전의 그림 경로 (없으면 null) */
+    public record PreviewAttach(boolean attached, String previous) {
+
+        public static final PreviewAttach SKIPPED = new PreviewAttach(false, null);
     }
 
     /** 파이프라인에서 결과를 받을 수 없을 때 FAILED 로. 만드는 중이 아니면 false */
