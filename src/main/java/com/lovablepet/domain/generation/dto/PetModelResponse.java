@@ -16,9 +16,13 @@ public record PetModelResponse(
         @Schema(description = "동물 ID", example = "1024")
         Long petId,
 
-        @Schema(description = "PENDING 만드는 중 / DONE 완성 / PHOTO_REJECTED 사진 거부 / UNSUITABLE 템플릿 부적합으로 멈춤 / FAILED 실패",
-                example = "PENDING")
+        @Schema(description = "PENDING 만드는 중 / DONE 완성 / PHOTO_REJECTED 사진 거부 / UNSUITABLE 템플릿 부적합으로 멈춤 / FAILED 실패. "
+                + "다시 만들어 교체된 옛 완성 모델도 DONE 이고 replaced 로 가른다",
+                allowableValues = {"PENDING", "DONE", "PHOTO_REJECTED", "UNSUITABLE", "FAILED"}, example = "PENDING")
         PetModelStatus status,
+
+        @Schema(description = "다시 만들어 새 모델로 교체된 옛 완성 모델인지. true 면 파일을 지워 glbUrl·usdzUrl 이 null", example = "false")
+        boolean replaced,
 
         @Schema(description = "파이프라인 작업 ID", example = "448567202600123-a5ca257e")
         String jobId,
@@ -71,8 +75,11 @@ public record PetModelResponse(
         Instant finishedAt
 ) {
 
+    /** 교체(REPLACED)는 DB 안에서만 쓰는 상태라, 앱에는 DONE + replaced=true 로 내보낸다 (앱은 상태 다섯 개만 안다) */
     public static PetModelResponse from(PetModel model, String glbUrl, String usdzUrl) {
-        return new PetModelResponse(model.getId(), model.getPetId(), model.getStatus(), model.getJobId(),
+        boolean replaced = model.getStatus() == PetModelStatus.REPLACED;
+        return new PetModelResponse(model.getId(), model.getPetId(), replaced ? PetModelStatus.DONE : model.getStatus(), replaced,
+                model.getJobId(),
                 model.getPhotoUrl(), model.getWeightKg(), model.isForced(), model.getFitLevel(), model.getFitScore(),
                 model.getTemplate(), model.getReasons(), model.getError(), glbUrl, usdzUrl, model.getWithersM(), model.getTapAnimation(),
                 model.getPlaybackRate(), model.getCostUsd(), model.getCreatedAt(), model.getFinishedAt());
