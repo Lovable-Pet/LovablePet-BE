@@ -6,6 +6,7 @@ import com.lovablepet.domain.generation.client.PetPipelineDtos.Model;
 import com.lovablepet.domain.generation.entity.PetModel;
 import com.lovablepet.domain.generation.repository.PetModelRepository;
 import com.lovablepet.domain.generation.service.PetModelFiles.Format;
+import com.lovablepet.domain.generation.service.PetModelWriter.Finish;
 import com.lovablepet.domain.pet.client.PublicAnimalItem;
 import com.lovablepet.domain.pet.entity.Pet;
 import com.lovablepet.domain.pet.repository.PetRepository;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -24,6 +26,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -32,6 +35,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -45,6 +49,7 @@ class PetModelResultServiceTest {
     private static final byte[] USDZ = {'P', 'K', 3, 4};
     private static final String GLB_PATH = "448567202600123/" + JOB_ID + ".glb";
     private static final String USDZ_PATH = "448567202600123/" + JOB_ID + ".usdz";
+    private static final Finish APPLIED = Finish.applied(List.of());
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
@@ -78,7 +83,7 @@ class PetModelResultServiceTest {
         given(pipelineClient.download(JOB_ID, "model.glb")).willReturn(GLB);
         given(files.save("448567202600123", JOB_ID, Format.GLB, GLB)).willReturn(GLB_PATH);
         Job job = job("done");
-        given(writer.finish(12L, job, GLB_PATH, null, NOW)).willReturn(true);
+        given(writer.finish(12L, job, GLB_PATH, null, NOW)).willReturn(APPLIED);
 
         service.apply(job);
 
@@ -97,11 +102,50 @@ class PetModelResultServiceTest {
         given(files.save("448567202600123", JOB_ID, Format.GLB, GLB)).willReturn(GLB_PATH);
         given(files.save("448567202600123", JOB_ID, Format.USDZ, USDZ)).willReturn(USDZ_PATH);
         Job job = doneWithUsdz();
-        given(writer.finish(12L, job, GLB_PATH, USDZ_PATH, NOW)).willReturn(true);
+        given(writer.finish(12L, job, GLB_PATH, USDZ_PATH, NOW)).willReturn(APPLIED);
 
         service.apply(job);
 
         verify(pipelineClient).delete(JOB_ID);
+    }
+
+    @Test
+    @DisplayName("다시 만들기 완성: 교체된 옛 모델 파일을 반영(커밋)한 뒤에 지운다. 못 지운 파일이 있어도 반영은 성공")
+    void done_replacingOldModel_deletesOldFilesAfterFinish() {
+        given(petModelRepository.findByJobId(JOB_ID)).willReturn(Optional.of(pendingModel()));
+        given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
+        given(pipelineClient.download(JOB_ID, "model.glb")).willReturn(GLB);
+        given(files.save("448567202600123", JOB_ID, Format.GLB, GLB)).willReturn(GLB_PATH);
+        Job job = job("done");
+        List<String> oldFiles = List.of("448567202600123/old.glb", "448567202600123/old.usdz", "448567202600123/old-preview-0a1b2c3d.webp");
+        given(writer.finish(12L, job, GLB_PATH, null, NOW)).willReturn(Finish.applied(oldFiles));
+        given(files.delete("448567202600123/old.glb")).willReturn(true);
+        given(files.delete("448567202600123/old.usdz")).willReturn(false);
+        given(files.delete("448567202600123/old-preview-0a1b2c3d.webp")).willReturn(true);
+
+        service.apply(job);
+
+        InOrder order = inOrder(writer, files);
+        order.verify(writer).finish(12L, job, GLB_PATH, null, NOW);
+        oldFiles.forEach(path -> order.verify(files).delete(path));
+        verify(files, never()).delete(GLB_PATH); // 새 파일은 건드리지 않는다
+        verify(previewService).request(12L);
+        verify(pipelineClient).delete(JOB_ID);
+    }
+
+    @Test
+    @DisplayName("이미 반영된 결과(SKIPPED)면 옛 파일도 지우지 않는다")
+    void skipped_deletesNothing() {
+        given(petModelRepository.findByJobId(JOB_ID)).willReturn(Optional.of(pendingModel()));
+        given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
+        given(pipelineClient.download(JOB_ID, "model.glb")).willReturn(GLB);
+        given(files.save(any(), any(), any(), any())).willReturn(GLB_PATH);
+        given(writer.finish(any(), any(), any(), any(), any())).willReturn(Finish.SKIPPED);
+
+        service.apply(job("done"));
+
+        verify(files, never()).delete(anyString());
+        verify(previewService, never()).request(any());
     }
 
     @Test
@@ -113,7 +157,7 @@ class PetModelResultServiceTest {
         given(pipelineClient.download(JOB_ID, "model.usdz")).willThrow(new ResourceAccessException("down"));
         given(files.save("448567202600123", JOB_ID, Format.GLB, GLB)).willReturn(GLB_PATH);
         Job job = doneWithUsdz();
-        given(writer.finish(12L, job, GLB_PATH, null, NOW)).willReturn(true);
+        given(writer.finish(12L, job, GLB_PATH, null, NOW)).willReturn(APPLIED);
 
         service.apply(job);
 
@@ -150,7 +194,7 @@ class PetModelResultServiceTest {
     void photoRejected_recordsWithoutGlb() {
         given(petModelRepository.findByJobId(JOB_ID)).willReturn(Optional.of(pendingModel()));
         Job job = job("photo_rejected");
-        given(writer.finish(eq(12L), eq(job), isNull(), isNull(), eq(NOW))).willReturn(true);
+        given(writer.finish(eq(12L), eq(job), isNull(), isNull(), eq(NOW))).willReturn(APPLIED);
 
         service.apply(job);
 
@@ -180,7 +224,7 @@ class PetModelResultServiceTest {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet()));
         given(pipelineClient.download(JOB_ID, "model.glb")).willReturn(GLB);
         given(files.save(any(), any(), any(), any())).willReturn("p.glb");
-        given(writer.finish(any(), any(), any(), any(), any())).willReturn(true);
+        given(writer.finish(any(), any(), any(), any(), any())).willReturn(APPLIED);
         willThrow(new ResourceAccessException("down")).given(pipelineClient).delete(JOB_ID);
 
         service.apply(job("done"));

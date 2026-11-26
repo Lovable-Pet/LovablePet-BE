@@ -33,7 +33,7 @@ public interface PetModelRepository extends JpaRepository<PetModel, Long> {
     /** 진행 중 작업 확인: 만든 지 오래된 PENDING */
     List<PetModel> findAllByStatusAndCreatedAtBefore(PetModelStatus status, Instant before);
 
-    List<PetModel> findTop100ByStatusOrderByCreatedAtDesc(PetModelStatus status);
+    List<PetModel> findTop100ByStatusInOrderByCreatedAtDesc(Collection<PetModelStatus> statuses);
 
     List<PetModel> findTop100ByOrderByCreatedAtDesc();
 

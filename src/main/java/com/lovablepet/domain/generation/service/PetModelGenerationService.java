@@ -33,7 +33,8 @@ import java.util.Optional;
 /**
  * 관리자 AR(3D 모델) 생성: 적합도 확인과 생성 등록. 결과는 콜백(PetModelCallbackController)으로 온다.
  * <ul>
- *   <li>한 번 만든 모델은 계속 쓴다 — 완성 모델이 있으면 다시 만들지 않는다</li>
+ *   <li>완성 모델이 있어도 다시 만들 수 있다. 새 모델이 완성되면 옛 모델을 교체(REPLACED)하고 파일을 지운다(PetModelWriter.finish).
+ *       그 전까지, 그리고 새 시도가 실패하면 옛 모델을 그대로 보여 준다</li>
  *   <li>하루(한국 날짜) 생성 시도 상한 (pet-pipeline.daily-limit). 실패한 시도도 비용이 들어 센다</li>
  *   <li>사진이 거부되면 force 로도 만들 수 없다 (파이프라인 작업도 photo_rejected 로 끝난다)</li>
  *   <li>맞는 템플릿이 없는 개도 force 로 만들 수 없다 (파이프라인 작업이 fit_stop 과 상관없이 unsuitable 로 끝난다)</li>
@@ -69,9 +70,6 @@ public class PetModelGenerationService {
 
     public PetModelResponse requestGeneration(Long petId, GenerateModelRequest request, Long adminId) {
         Pet pet = findPet(petId);
-        if (petModelRepository.existsByPetIdAndStatus(petId, PetModelStatus.DONE)) {
-            throw new GenerationException(ErrorCode.GENERATION_MODEL_EXISTS);
-        }
         if (petModelRepository.existsByPetIdAndStatus(petId, PetModelStatus.PENDING)) {
             throw new GenerationException(ErrorCode.GENERATION_IN_PROGRESS);
         }
@@ -110,7 +108,9 @@ public class PetModelGenerationService {
     public PetModelListResponse list(PetModelStatus status) {
         List<PetModel> models = status == null
                 ? petModelRepository.findTop100ByOrderByCreatedAtDesc()
-                : petModelRepository.findTop100ByStatusOrderByCreatedAtDesc(status);
+                : petModelRepository.findTop100ByStatusInOrderByCreatedAtDesc(
+                        // 교체된 옛 모델은 앱에 DONE 으로 나가므로 DONE 으로 거르면 같이 나온다
+                        status == PetModelStatus.DONE ? List.of(PetModelStatus.DONE, PetModelStatus.REPLACED) : List.of(status));
         return new PetModelListResponse(models.stream().map(this::toResponse).toList(), todayCount(),
                 properties.dailyLimit());
     }

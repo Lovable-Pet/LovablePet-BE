@@ -20,10 +20,13 @@ import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 /**
  * AR(3D 모델) 생성 시도 하나. 컬럼 설명은 V8__create_pet_model_table.sql.
  * PENDING 으로 만들어지고, 파이프라인 결과(콜백 또는 진행 중 작업 확인)로 한 번만 끝난 상태가 된다.
+ * 완성(DONE)은 같은 동물의 다음 모델이 완성되면 REPLACED 로 바뀐다.
  */
 @Entity
 @Table(name = "pet_model")
@@ -148,6 +151,19 @@ public class PetModel {
         this.reasons = source == null ? List.of() : List.copyOf(source);
         this.error = job.error();
         finish(result, job, now);
+    }
+
+    /**
+     * 같은 동물의 새 모델이 완성돼 더는 쓰지 않는다. 파일 경로를 비우고, 지워야 할 파일(GLB·USDZ·미리보기 중 있는 것)의 경로를 돌려준다.
+     * 파일은 커밋한 뒤에 지운다 (경로를 비웠으니 응답에도 더는 나가지 않는다).
+     */
+    public List<String> replace() {
+        List<String> paths = Stream.of(glbPath, usdzPath, previewPath).filter(Objects::nonNull).toList();
+        this.status = PetModelStatus.REPLACED;
+        this.glbPath = null;
+        this.usdzPath = null;
+        this.previewPath = null;
+        return paths;
     }
 
     /** 파이프라인에서 결과를 받을 수 없을 때 (작업이 없어짐, 시간 초과, 등록 중 중단) */

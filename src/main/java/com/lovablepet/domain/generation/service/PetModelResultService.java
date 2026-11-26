@@ -5,6 +5,7 @@ import com.lovablepet.domain.generation.client.PetPipelineDtos.Job;
 import com.lovablepet.domain.generation.entity.PetModel;
 import com.lovablepet.domain.generation.repository.PetModelRepository;
 import com.lovablepet.domain.generation.service.PetModelFiles.Format;
+import com.lovablepet.domain.generation.service.PetModelWriter.Finish;
 import com.lovablepet.domain.pet.entity.Pet;
 import com.lovablepet.domain.pet.repository.PetRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 
 import java.time.Clock;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -67,17 +69,18 @@ public class PetModelResultService {
             }
         }
 
-        boolean applied;
+        Finish finish;
         try {
-            applied = writer.finish(model.getId(), job, glbPath, usdzPath, clock.instant());
+            finish = writer.finish(model.getId(), job, glbPath, usdzPath, clock.instant());
         } catch (ObjectOptimisticLockingFailureException e) {
-            applied = false;
+            finish = Finish.SKIPPED;
         }
-        if (!applied) {
+        if (!finish.applied()) {
             log.info("다른 쪽(콜백·작업 확인)에서 먼저 반영했습니다: jobId={}", job.jobId());
             return;
         }
         log.info("AR 생성 결과 반영: jobId={}, status={}, glb={}, usdz={}", job.jobId(), job.status(), glbPath, usdzPath);
+        deleteReplaced(job.jobId(), finish.replacedFiles());
 
         // 상세 화면에서 바로 보여 줄 미리보기 그림은 뒤에서 따로 찍는다 (몇 초 걸려 콜백 응답을 기다리게 하지 않는다)
         if (glbPath != null) {
@@ -103,6 +106,19 @@ public class PetModelResultService {
             return null;
         }
         return files.save(desertionNo, jobId, Format.USDZ, usdz);
+    }
+
+    // 다시 만들어 교체된 옛 모델 파일. DB 에서는 이미 경로를 비웠으니 못 지워도 서비스에는 지장이 없다 (디스크만 남는다)
+    private void deleteReplaced(String jobId, List<String> paths) {
+        if (paths.isEmpty()) {
+            return;
+        }
+        List<String> left = paths.stream().filter(path -> !files.delete(path)).toList();
+        if (left.isEmpty()) {
+            log.info("다시 만들어 교체된 옛 모델 파일을 지웠습니다: jobId={}, {}", jobId, paths);
+        } else {
+            log.warn("교체된 옛 모델 파일을 지우지 못했습니다(손으로 지워도 됨): jobId={}, {}", jobId, left);
+        }
     }
 
     // 모델 파일을 옮겨 왔으니 파이프라인 쪽 작업 파일은 지운다. 실패한 작업은 원인을 볼 수 있게 남겨 둔다

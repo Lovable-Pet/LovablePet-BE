@@ -3,6 +3,7 @@ package com.lovablepet.domain.generation.service;
 import com.lovablepet.domain.generation.entity.PetModel;
 import com.lovablepet.domain.generation.entity.PetModelStatus;
 import com.lovablepet.domain.generation.repository.PetModelRepository;
+import com.lovablepet.domain.generation.service.PetModelWriter.PreviewAttach;
 import com.lovablepet.domain.pet.entity.Pet;
 import com.lovablepet.domain.pet.repository.PetRepository;
 import jakarta.annotation.PreDestroy;
@@ -95,7 +96,14 @@ public class PetModelPreviewService {
             String desertionNo = petRepository.findById(model.getPetId()).map(Pet::getDesertionNo).orElseThrow();
 
             String path = files.savePreview(desertionNo, model.getJobId(), renderer.render(glb));
-            String previous = writer.attachPreview(modelId, path);
+            PreviewAttach attach = writer.attachPreview(modelId, path);
+            if (!attach.attached()) {
+                // 찍는 사이 다시 만들기로 교체됐다: 옛 모델 파일과 함께 이 그림도 남기지 않는다
+                files.delete(path);
+                log.info("찍는 사이 교체된 모델이라 미리보기 그림을 지웠습니다: modelId={}, {}", modelId, path);
+                return;
+            }
+            String previous = attach.previous();
             if (previous != null && !previous.equals(path)) {
                 files.delete(previous);
             }

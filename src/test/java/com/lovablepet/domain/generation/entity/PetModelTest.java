@@ -81,6 +81,24 @@ class PetModelTest {
         assertThat(model.getReasons()).isEmpty();
     }
 
+    @Test
+    @DisplayName("교체: 다시 만든 모델이 완성되면 옛 모델은 REPLACED, 파일 경로를 비우고 지울 파일(있는 것만)을 돌려준다")
+    void replace() {
+        PetModel model = reserved();
+        model.complete(new Job("j1", "1", "done", GOOD, null, null, null, null, null, null, null, 0.006),
+                "1/j1.glb", null, FINISHED);
+        model.attachPreview("1/j1-preview-0a1b2c3d.webp");
+
+        List<String> files = model.replace();
+
+        assertThat(files).containsExactly("1/j1.glb", "1/j1-preview-0a1b2c3d.webp"); // USDZ 가 없으면 빠진다
+        assertThat(model.getStatus()).isEqualTo(PetModelStatus.REPLACED);
+        assertThat(model.getGlbPath()).isNull();
+        assertThat(model.getUsdzPath()).isNull();
+        assertThat(model.getPreviewPath()).isNull();
+        assertThat(model.getFinishedAt()).isEqualTo(FINISHED); // 기록은 그대로
+    }
+
     private PetModel reserved() {
         PetModel model = PetModel.reserve(7L, "https://a/1.jpg", new BigDecimal("25.70"), false, 3L, CREATED);
         model.attachJob("j1");

@@ -43,7 +43,6 @@ public enum ErrorCode {
     // Generation (3D 생성 파이프라인)
     GENERATION_INVALID_API_KEY(HttpStatus.UNAUTHORIZED, "GENERATION_401_KEY", "파이프라인 API 키가 올바르지 않습니다."),
     GENERATION_INVALID_PET_ID(HttpStatus.BAD_REQUEST, "GENERATION_400_PET_ID", "모델 파일 이름으로 쓸 수 없는 관리번호입니다."),
-    GENERATION_MODEL_EXISTS(HttpStatus.CONFLICT, "GENERATION_409_EXISTS", "이미 AR 모델이 있는 동물입니다. 한 번 만든 모델을 계속 씁니다."),
     GENERATION_IN_PROGRESS(HttpStatus.CONFLICT, "GENERATION_409_RUNNING", "이 동물의 AR 모델을 만드는 중입니다."),
     GENERATION_WEIGHT_UNKNOWN(HttpStatus.BAD_REQUEST, "GENERATION_400_WEIGHT", "공고 체중을 알 수 없어 실제 크기로 만들 수 없습니다."),
     GENERATION_INVALID_PHOTO(HttpStatus.BAD_REQUEST, "GENERATION_400_PHOTO", "사진 번호가 올바르지 않습니다."),
