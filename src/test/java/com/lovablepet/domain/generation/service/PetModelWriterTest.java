@@ -5,6 +5,7 @@ import com.lovablepet.domain.generation.entity.PetModel;
 import com.lovablepet.domain.generation.entity.PetModelStatus;
 import com.lovablepet.domain.generation.repository.PetModelRepository;
 import com.lovablepet.domain.generation.service.PetModelWriter.Finish;
+import com.lovablepet.domain.generation.service.PetModelWriter.PreviewAttach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -103,6 +104,33 @@ class PetModelWriterTest {
 
         assertThat(writer.finish(12L, job("j2", "done"), "1/j2.glb", null, NOW)).isEqualTo(Finish.SKIPPED);
         verify(petModelRepository, never()).findByPetIdAndStatus(any(), any());
+    }
+
+    @Test
+    @DisplayName("미리보기 그림: 완성 모델에는 붙이고 이전 그림 경로를 돌려준다")
+    void attachPreview_done() {
+        PetModel done = model(12L, "j2");
+        done.complete(job("j2", "done"), "1/j2.glb", null, CREATED);
+        done.attachPreview("1/j2-preview-00000000.webp");
+        given(petModelRepository.findById(12L)).willReturn(Optional.of(done));
+
+        assertThat(writer.attachPreview(12L, "1/j2-preview-1f2e3d4c.webp"))
+                .isEqualTo(new PreviewAttach(true, "1/j2-preview-00000000.webp"));
+        assertThat(done.getPreviewPath()).isEqualTo("1/j2-preview-1f2e3d4c.webp");
+    }
+
+    @Test
+    @DisplayName("미리보기 그림: 찍는 사이 교체된 모델(REPLACED)이나 없는 모델에는 붙이지 않는다")
+    void attachPreview_replacedOrMissing_skipped() {
+        PetModel old = model(11L, "j1");
+        old.complete(job("j1", "done"), "1/j1.glb", null, CREATED);
+        old.replace();
+        given(petModelRepository.findById(11L)).willReturn(Optional.of(old));
+        given(petModelRepository.findById(99L)).willReturn(Optional.empty());
+
+        assertThat(writer.attachPreview(11L, "1/j1-preview-1f2e3d4c.webp")).isEqualTo(PreviewAttach.SKIPPED);
+        assertThat(old.getPreviewPath()).isNull();
+        assertThat(writer.attachPreview(99L, "1/x-preview-1f2e3d4c.webp")).isEqualTo(PreviewAttach.SKIPPED);
     }
 
     private static PetModel model(long id, String jobId) {
