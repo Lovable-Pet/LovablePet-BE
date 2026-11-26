@@ -12,6 +12,7 @@ import com.lovablepet.domain.generation.service.PetModelPreviewService;
 import com.lovablepet.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -56,7 +57,10 @@ public class AdminPetModelController {
     @Operation(summary = "AR 만들기",
             description = "생성을 등록하고 바로 202 로 답한다. 1~4분 뒤 결과가 콜백으로 와서 상태가 바뀐다 "
                     + "(만드는 중 화면에서 `GET /api/admin/pets/{id}/model` 을 몇 초마다 조회). 한 마리 약 $0.006 (이미지 모델 다듬기는 꺼져 있음).\n\n"
-                    + "실패: `GENERATION_409_EXISTS` 이미 완성 모델이 있음(한 번 만들면 계속 씀), `GENERATION_409_RUNNING` 만드는 중, "
+                    + "완성 모델이 있는 개도 다시 만들 수 있다(하루 횟수에 센다). 새 모델이 완성되면 옛 시도는 `replaced=true` 가 되고"
+                    + "(status 는 DONE 그대로) 파일이 지워져 동물 상세의 모델 주소가 바뀐다. "
+                    + "그 전까지, 그리고 새 시도가 실패하면 옛 모델을 그대로 보여 준다.\n\n"
+                    + "실패: `GENERATION_409_RUNNING` 만드는 중, "
                     + "`GENERATION_400_PHOTO_REJECTED` 적합도 확인에서 거부된 사진, "
                     + "`GENERATION_400_NO_TEMPLATE` 적합도 확인에서 맞는 템플릿이 없다고 나온 개(force 로도 못 만든다), "
                     + "`GENERATION_400_WEIGHT`, `GENERATION_400_PHOTO`, "
@@ -79,7 +83,8 @@ public class AdminPetModelController {
     @Operation(summary = "AR 생성 시도 목록", description = "최근 100건과 오늘 사용량(todayCount / dailyLimit)")
     @GetMapping("/pet-models")
     public ApiResponse<PetModelListResponse> list(
-            @Parameter(description = "상태로 거르기 (비우면 전체)")
+            @Parameter(description = "상태로 거르기 (비우면 전체). DONE 이면 교체된 옛 완성 모델(replaced=true)도 나온다",
+                    schema = @Schema(allowableValues = {"PENDING", "DONE", "PHOTO_REJECTED", "UNSUITABLE", "FAILED"}))
             @RequestParam(required = false) PetModelStatus status) {
         return ApiResponse.ok(generationService.list(status));
     }

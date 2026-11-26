@@ -9,6 +9,7 @@ import com.lovablepet.domain.generation.client.PetPipelineDtos.PetRecord;
 import com.lovablepet.domain.generation.dto.FitCheckRequest;
 import com.lovablepet.domain.generation.dto.FitCheckResponse;
 import com.lovablepet.domain.generation.dto.GenerateModelRequest;
+import com.lovablepet.domain.generation.dto.PetModelListResponse;
 import com.lovablepet.domain.generation.dto.PetModelResponse;
 import com.lovablepet.domain.generation.entity.PetModel;
 import com.lovablepet.domain.generation.entity.PetModelStatus;
@@ -223,14 +224,26 @@ class PetModelGenerationServiceTest {
     }
 
     @Test
-    @DisplayName("생성 막기: 완성 모델이 있으면(한 번 만들면 재사용) 409, 만드는 중이면 409")
-    void requestGeneration_blockedByExistingModel() {
+    @DisplayName("다시 만들기: 완성 모델이 있어도 막지 않고 등록한다 (교체는 새 모델이 완성될 때)")
+    void requestGeneration_allowedWithExistingModel() {
         given(petRepository.findById(7L)).willReturn(Optional.of(pet("Y", "5.5(Kg)")));
-        given(petModelRepository.existsByPetIdAndStatus(7L, PetModelStatus.DONE)).willReturn(true);
-        assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, true), 3L),
-                ErrorCode.GENERATION_MODEL_EXISTS);
+        given(photoSource.get(PHOTO_0)).willReturn(PHOTO);
+        given(photoSource.rejection(PHOTO_0)).willReturn(List.of());
+        given(writer.reserve(any())).willAnswer(invocation -> withId(invocation.getArgument(0), 13L));
+        given(pipelineClient.createJob(any(), eq(PHOTO), eq(true))).willReturn(job("j2", "queued"));
+        given(writer.attachJob(13L, "j2")).willAnswer(invocation ->
+                withId(PetModel.reserve(7L, PHOTO_0, BigDecimal.ONE, false, 3L, NOW), 13L));
 
-        given(petModelRepository.existsByPetIdAndStatus(7L, PetModelStatus.DONE)).willReturn(false);
+        PetModelResponse response = service.requestGeneration(7L, new GenerateModelRequest(0, false), 3L);
+
+        assertThat(response.status()).isEqualTo(PetModelStatus.PENDING);
+        verify(petModelRepository, never()).existsByPetIdAndStatus(7L, PetModelStatus.DONE);
+    }
+
+    @Test
+    @DisplayName("생성 막기: 만드는 중이면 409")
+    void requestGeneration_blockedWhileRunning() {
+        given(petRepository.findById(7L)).willReturn(Optional.of(pet("Y", "5.5(Kg)")));
         given(petModelRepository.existsByPetIdAndStatus(7L, PetModelStatus.PENDING)).willReturn(true);
         assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, false), 3L),
                 ErrorCode.GENERATION_IN_PROGRESS);
@@ -278,6 +291,38 @@ class PetModelGenerationServiceTest {
         assertError(() -> service.requestGeneration(7L, new GenerateModelRequest(0, false), 3L),
                 ErrorCode.GENERATION_DAILY_LIMIT);
         verify(writer, never()).reserve(any());
+    }
+
+    @Test
+    @DisplayName("시도 목록: 교체된 옛 완성 모델은 앱이 아는 DONE + replaced=true 로 나가고(파일 주소 없음), DONE 으로 거르면 같이 나온다")
+    void list_replacedShownAsDone() {
+        PetModel old = completed(11L, "j1");
+        old.replace();
+        PetModel fresh = completed(12L, "j2");
+        given(petModelRepository.findTop100ByStatusInOrderByCreatedAtDesc(List.of(PetModelStatus.DONE, PetModelStatus.REPLACED)))
+                .willReturn(List.of(fresh, old));
+        given(files.publicUrl("448567202600123/j2.glb")).willReturn("/models/448567202600123/j2.glb");
+
+        PetModelListResponse response = service.list(PetModelStatus.DONE);
+
+        assertThat(response.items()).extracting(PetModelResponse::status).containsExactly(PetModelStatus.DONE, PetModelStatus.DONE);
+        assertThat(response.items()).extracting(PetModelResponse::replaced).containsExactly(false, true);
+        assertThat(response.items()).extracting(PetModelResponse::glbUrl).containsExactly("/models/448567202600123/j2.glb", null);
+    }
+
+    @Test
+    @DisplayName("시도 목록: DONE 이 아닌 상태로 거르면 그 상태만")
+    void list_otherStatus() {
+        given(petModelRepository.findTop100ByStatusInOrderByCreatedAtDesc(List.of(PetModelStatus.FAILED))).willReturn(List.of());
+
+        assertThat(service.list(PetModelStatus.FAILED).items()).isEmpty();
+    }
+
+    private PetModel completed(long id, String jobId) {
+        PetModel model = withId(PetModel.reserve(7L, PHOTO_0, BigDecimal.ONE, false, 3L, NOW), id);
+        model.attachJob(jobId);
+        model.complete(job(jobId, "done"), "448567202600123/" + jobId + ".glb", null, NOW);
+        return model;
     }
 
     private void assertError(org.assertj.core.api.ThrowableAssert.ThrowingCallable call, ErrorCode code) {
